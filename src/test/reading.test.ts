@@ -46,6 +46,8 @@ describe('tarot reading engine', () => {
       expect(reading.positionReadings).toHaveLength(spread.cardCount)
       expect(reading.summary.length).toBeGreaterThan(10)
       expect(reading.advice.length).toBeGreaterThan(0)
+      expect(reading.actionPlan).toHaveLength(3)
+      expect(reading.actionPlan.every((entry) => entry.title.length > 0)).toBe(true)
       expect(reading.dominantSignals.length).toBeGreaterThan(1)
     }
   })

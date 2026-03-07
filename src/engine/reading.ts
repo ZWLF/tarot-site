@@ -3,6 +3,7 @@ import { CARD_BY_ID, TAROT_DECK } from '../data/cards'
 import { SPREADS } from '../data/spreads'
 import { TOPIC_BY_ID } from '../data/topics'
 import type {
+  ActionPlanStep,
   DrawnCard,
   ReadingCardView,
   ReadingInput,
@@ -100,6 +101,7 @@ const ADVICE_LIBRARY: Record<string, string> = {
   learn: '参考成熟经验或可信的建议，不必什么都独自摸索。',
   observe: '先看、先听、先辨认讯号，不急着马上下结论。',
   patience: '把节奏放慢半拍，真正适合你的东西不会因耐心而错过。',
+  lead: '先把方向、边界与节奏定下来，再带着稳定感去推进事情。',
   receive: '允许帮助、爱意和支持进入，不要只习惯一个人扛着。',
   release: '主动放下已经过期的执念、角色或期待，空间才会出现。',
   rest: '短暂停顿不是后退，而是在避免耗尽自己。',
@@ -107,6 +109,109 @@ const ADVICE_LIBRARY: Record<string, string> = {
   'start-small': '先从最小可行动作开始，别等所有条件完美才迈步。',
   strategy: '先定策略，再定速度，聪明布局比硬冲更有效。',
   trust: '相信直觉给出的第一反应，同时用现实去验证它。',
+}
+
+const ACTION_PLAN_LIBRARY: Record<string, Pick<ActionPlanStep, 'title' | 'detail'>> = {
+  act: {
+    title: '先迈出一个最小动作',
+    detail: '把抽象判断落成一个当天就能执行的小动作，让局势开始流动。',
+  },
+  adapt: {
+    title: '为变化预留调整空间',
+    detail: '记录正在变化的条件，允许自己基于新信息修正原计划。',
+  },
+  balance: {
+    title: '先校准投入与节奏',
+    detail: '检查情绪、时间和资源分配，避免在失衡状态下继续加码。',
+  },
+  boundaries: {
+    title: '明确你的边界',
+    detail: '分清哪些责任属于你，哪些不属于你，再决定下一步回应方式。',
+  },
+  clarity: {
+    title: '把问题说得更具体',
+    detail: '把目标、标准和担心写清楚，模糊感降低后行动会更稳。',
+  },
+  collaborate: {
+    title: '引入一个外部视角',
+    detail: '找一个值得信任的人交换反馈，补齐你当前没有看到的信息。',
+  },
+  communicate: {
+    title: '说出真实需求',
+    detail: '不要只靠猜测，试着用直接而温和的方式表达你的期待与顾虑。',
+  },
+  complete: {
+    title: '完成该收尾的部分',
+    detail: '先把拖着未完的事项结案，为新的阶段腾出精力和注意力。',
+  },
+  courage: {
+    title: '带着勇气做决定',
+    detail: '允许自己谨慎，但不要继续把方向感交给犹豫或拖延。',
+  },
+  decide: {
+    title: '把取舍写下来',
+    detail: '明确你愿意承担什么、不愿再承担什么，帮助自己真正做出选择。',
+  },
+  discipline: {
+    title: '建立一个可重复节奏',
+    detail: '把行动安排到日程里，用稳定重复替代一时的冲劲。',
+  },
+  focus: {
+    title: '只保留一条主推进线',
+    detail: '收拢分散的注意力，把最值得推进的一件事放到最前面。',
+  },
+  ground: {
+    title: '先稳住现实基础',
+    detail: '先处理身体、睡眠、时间和资源，让自己在更稳的状态里行动。',
+  },
+  heal: {
+    title: '照顾受伤与疲惫',
+    detail: '允许自己先修复，再处理更复杂的关系或选择。',
+  },
+  lead: {
+    title: '先定框架再推进',
+    detail: '先把优先级、边界和节奏设清楚，再带队或推动他人配合。',
+  },
+  learn: {
+    title: '借用成熟经验',
+    detail: '先参考已有经验或方法，再决定哪些部分要由你自己探索。',
+  },
+  observe: {
+    title: '先观察再下判断',
+    detail: '暂停立刻给结论的冲动，先收集更多信号和事实。',
+  },
+  patience: {
+    title: '给结果留出发酵时间',
+    detail: '把节奏放慢一点，让真正适合你的答案自然浮现。',
+  },
+  receive: {
+    title: '允许支持进入',
+    detail: '主动接受帮助、反馈和情感支持，不要什么都独自承担。',
+  },
+  release: {
+    title: '放下过期负担',
+    detail: '识别已经不再适用的执念、身份或安排，为新阶段腾出空间。',
+  },
+  rest: {
+    title: '安排一个恢复窗口',
+    detail: '把休息视为修复容量的一部分，而不是对行动的放弃。',
+  },
+  'self-honesty': {
+    title: '对自己保持诚实',
+    detail: '先承认真正害怕和真正渴望的东西，再决定如何行动。',
+  },
+  'start-small': {
+    title: '从最小版本开始',
+    detail: '不要等所有条件完美，先做一个能验证方向的小实验。',
+  },
+  strategy: {
+    title: '先布好策略再加速',
+    detail: '先想清楚路线和优先级，再决定速度，避免硬冲。',
+  },
+  trust: {
+    title: '让直觉和现实对齐',
+    detail: '记录第一反应，再用一个现实动作去验证它是否站得住。',
+  },
 }
 
 const getSpread = (spreadId: string) => {
@@ -157,6 +262,7 @@ export const createReading = (
     positionReadings: cards.map((entry) => buildPositionReading(entry, input.topic)),
     summary: buildSummary(cards, input),
     advice: buildAdvice(cards),
+    actionPlan: buildActionPlan(cards),
     tone: buildTone(cards),
     dominantSignals: buildDominantSignals(cards, input.topic),
   }
@@ -317,6 +423,46 @@ const buildAdvice = (cards: ReadingCardView[]) => {
   }
 
   return advice
+}
+
+const buildActionPlan = (cards: ReadingCardView[]) => {
+  const uniqueTags = Array.from(new Set(cards.flatMap((entry) => entry.card.adviceTags)))
+  const plan = uniqueTags
+    .map((tag) => {
+      const template = ACTION_PLAN_LIBRARY[tag]
+
+      if (!template) {
+        return null
+      }
+
+      return {
+        id: `step-${tag}`,
+        title: template.title,
+        detail: template.detail,
+      }
+    })
+    .filter((entry): entry is ActionPlanStep => entry !== null)
+    .slice(0, 3)
+
+  const fallbackPlan: ActionPlanStep[] = [
+    {
+      id: 'step-observe',
+      title: '先观察当前局势',
+      detail: '把最重要的感受、阻力和外部条件记录下来，避免被情绪直接带走。',
+    },
+    {
+      id: 'step-act',
+      title: '做一个最小行动实验',
+      detail: '选择一个低风险动作，快速验证你现在最在意的判断是否成立。',
+    },
+    {
+      id: 'step-review',
+      title: '在一周内复盘一次',
+      detail: '回看新的反馈与变化，再决定是否要继续推进、调整或暂停。',
+    },
+  ]
+
+  return plan.length === 3 ? plan : [...plan, ...fallbackPlan].slice(0, 3)
 }
 
 const getDominantSuit = (cards: ReadingCardView[]): MinorSuit | null => {
