@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CARD_BY_ID } from '../data/cards'
 import { SPREADS } from '../data/spreads'
 import { createReading, drawCards } from '../engine/reading'
 import { createSeededRandom } from '../engine/random'
@@ -68,5 +69,12 @@ describe('tarot reading engine', () => {
     expect(reading.summary).toContain('大阿尔卡那')
     expect(reading.summary).toContain('圣杯能量最浓')
     expect(reading.summary).toContain('逆位偏多')
+  })
+
+  it('keeps core card copy readable in Chinese', () => {
+    expect(CARD_BY_ID['the-fool'].nameZh).toBe('愚者')
+    expect(CARD_BY_ID['the-magician'].meaning.up).toContain('想法变成现实')
+    expect(CARD_BY_ID['the-fool'].nameZh).not.toContain('�')
+    expect(CARD_BY_ID['the-magician'].meaning.down).not.toContain('�')
   })
 })

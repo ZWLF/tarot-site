@@ -8,9 +8,16 @@ describe('App tarot flow', () => {
   })
 
   it(
-    'supports draw, action plan, follow-up, save history, and encyclopedia flow',
+    'supports daily card, draw, archive, action plan, follow-up, save history, and encyclopedia flow',
     () => {
       render(<App shuffleDelayMs={0} />)
+
+      expect(
+        screen.getByRole('heading', { name: '每日一张牌' }),
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: '揭晓今日能量' }))
+      expect(screen.getByRole('heading', { name: '今日提示' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '分享今日抽牌' })).toBeEnabled()
 
       const drawButton = screen.getByRole('button', { name: '洗牌并抽牌' })
       expect(drawButton).toBeDisabled()
@@ -31,9 +38,14 @@ describe('App tarot flow', () => {
 
       fireEvent.click(screen.getByRole('button', { name: '全部揭晓' }))
 
+      expect(screen.getByRole('button', { name: '分享这次结果' })).toBeEnabled()
       expect(screen.getByRole('heading', { name: '占卜后行动计划' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: '追问模式' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: '78 张牌卡百科' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '本地自动归档' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '收起详情' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '牌阵回看' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '关键信号' })).toBeInTheDocument()
 
       const actionCheckboxes = screen.getAllByRole('checkbox')
       expect(actionCheckboxes.length).toBeGreaterThan(0)

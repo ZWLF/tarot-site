@@ -5,6 +5,7 @@ import { GuidePanel } from './components/GuidePanel'
 import { TarotCardButton } from './components/TarotCardButton'
 import { SPREADS } from './data/spreads'
 import { TOPICS, TOPIC_BY_ID } from './data/topics'
+import type { SavedReadingEntry } from './domain/history'
 import type {
   FollowUpRecord,
   ReadingResult,
@@ -18,6 +19,18 @@ import {
   storeGuideDismissed,
   storeSavedReadings,
 } from './engine/storage'
+import { createDailyReading, formatDailyLabel } from './lib/daily'
+import {
+  buildSavedReadingEntry,
+  clearReadingHistory,
+  loadReadingHistory,
+  saveReadingHistoryEntry,
+} from './lib/history'
+import {
+  buildReadingShareText,
+  buildSavedReadingShareText,
+  shareText,
+} from './lib/share'
 
 interface AppProps {
   shuffleDelayMs?: number
@@ -63,6 +76,14 @@ const formatTimestamp = (iso: string) =>
     minute: '2-digit',
   }).format(new Date(iso))
 
+const formatArchiveTime = (value: string) =>
+  new Intl.DateTimeFormat('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+
 const createFollowUpRecord = (
   question: string,
   reading: ReadingResult,
@@ -101,10 +122,23 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
   const [historyQuery, setHistoryQuery] = useState('')
   const [guideDismissed, setGuideDismissed] = useState(() => loadGuideDismissed())
+  const [dailyReading] = useState(() => createDailyReading())
+  const [dailyLabel] = useState(() => formatDailyLabel())
+  const [dailyRevealed, setDailyRevealed] = useState(false)
+  const [archiveEntries, setArchiveEntries] = useState<SavedReadingEntry[]>(
+    () => loadReadingHistory(),
+  )
+  const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(null)
+  const [resultShareMessage, setResultShareMessage] = useState<string | null>(null)
+  const [dailyShareMessage, setDailyShareMessage] = useState<string | null>(null)
+  const [archiveShareMessage, setArchiveShareMessage] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
+  const lastArchivedReadingIdRef = useRef<string | null>(null)
 
   const selectedTopic = TOPICS.find((entry) => entry.id === topic) ?? null
   const selectedSpread = SPREADS.find((entry) => entry.id === spreadId) ?? null
+  const dailyCard = dailyReading.cards[0]
+  const dailyInsight = dailyReading.positionReadings[0]
   const isLocked = isShuffling || reading !== null
   const canDraw =
     question.trim().length > 0 &&
@@ -167,6 +201,31 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
       `${TOPIC_BY_ID[nextReading.input.topic].label}, ${nextReading.spread.title}`,
     )
     setSaveNotice(null)
+    setResultShareMessage(null)
+    setArchiveShareMessage(null)
+    lastArchivedReadingIdRef.current = null
+  }
+
+  const persistArchivedReading = (
+    nextReading: ReadingResult,
+    nextRevealedPositions: string[],
+  ) => {
+    if (nextRevealedPositions.length !== nextReading.cards.length) {
+      return
+    }
+
+    const entry = buildSavedReadingEntry(
+      nextReading,
+      TOPIC_BY_ID[nextReading.input.topic].label,
+    )
+
+    if (entry.id === lastArchivedReadingIdRef.current) {
+      return
+    }
+
+    setArchiveEntries(saveReadingHistoryEntry(entry))
+    setExpandedArchiveId(entry.id)
+    lastArchivedReadingIdRef.current = entry.id
   }
 
   const handleDraw = () => {
@@ -175,6 +234,8 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     }
 
     setRevealedPositions([])
+    setResultShareMessage(null)
+    setArchiveShareMessage(null)
 
     const nextReading = createReading(
       {
@@ -199,9 +260,14 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   }
 
   const handleReveal = (positionKey: string) => {
-    setRevealedPositions((current) =>
-      current.includes(positionKey) ? current : [...current, positionKey],
-    )
+    if (reading === null || revealedPositions.includes(positionKey)) {
+      return
+    }
+
+    const nextRevealedPositions = [...revealedPositions, positionKey]
+
+    setRevealedPositions(nextRevealedPositions)
+    persistArchivedReading(reading, nextRevealedPositions)
   }
 
   const handleRevealAll = () => {
@@ -209,7 +275,12 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
       return
     }
 
-    setRevealedPositions(reading.cards.map((entry) => entry.drawn.positionKey))
+    const nextRevealedPositions = reading.cards.map(
+      (entry) => entry.drawn.positionKey,
+    )
+
+    setRevealedPositions(nextRevealedPositions)
+    persistArchivedReading(reading, nextRevealedPositions)
   }
 
   const handleReset = () => {
@@ -231,6 +302,7 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     setSaveCategory('general')
     setSaveTagsInput('')
     setSaveNotice(null)
+    setResultShareMessage(null)
   }
 
   const handleToggleActionPlan = (stepId: string) => {
@@ -306,6 +378,63 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     setSaveNotice('已保存到历史占卜，可以按分类和标签回看。')
   }
 
+  const handleShareReading = async () => {
+    if (reading === null || !allRevealed) {
+      return
+    }
+
+    try {
+      const message = await shareText(
+        '浮世占｜占卜结果',
+        buildReadingShareText(reading, TOPIC_BY_ID[reading.input.topic].label),
+      )
+      setResultShareMessage(message)
+    } catch (error) {
+      setResultShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleShareDaily = async () => {
+    if (!dailyRevealed) {
+      return
+    }
+
+    try {
+      const message = await shareText(
+        '浮世占｜每日一张牌',
+        buildReadingShareText(dailyReading, TOPIC_BY_ID.general.label),
+      )
+      setDailyShareMessage(message)
+    } catch (error) {
+      setDailyShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleShareArchive = async (entry: SavedReadingEntry) => {
+    try {
+      const message = await shareText(
+        '浮世占｜自动归档',
+        buildSavedReadingShareText(entry),
+      )
+      setArchiveShareMessage(message)
+    } catch (error) {
+      setArchiveShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleClearArchive = () => {
+    clearReadingHistory()
+    setArchiveEntries([])
+    setExpandedArchiveId(null)
+    setArchiveShareMessage('自动归档已清空。')
+  }
+
   return (
     <div className="app-shell">
       <div className="app-shell__mist app-shell__mist--left" />
@@ -322,14 +451,15 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
           <h1>纸上星轨，问心抽牌</h1>
           <p className="hero__lede">
             以浮世绘风格展开一场中文塔罗体验。除了完成占卜，你还可以继续追问、查看牌卡百科、
-            生成行动计划，并把结果保存成真正可回看的历史记录。
+            生成行动计划、做每日一张牌，并把结果分享或自动归档。
           </p>
 
           <div className="hero__meta">
             <span>完整 78 张牌</span>
             <span>支持正位 / 逆位</span>
+            <span>单张到五张牌阵</span>
             <span>占后行动计划</span>
-            <span>追问与历史保存</span>
+            <span>每日一张与快速分享</span>
           </div>
         </div>
       </header>
@@ -340,6 +470,83 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
           onDismiss={() => setGuideDismissed(true)}
           onRestore={() => setGuideDismissed(false)}
         />
+
+        <section className="panel section daily-panel">
+          <div className="section__heading">
+            <div>
+              <p className="eyebrow">Daily Card</p>
+              <h2>每日一张牌</h2>
+            </div>
+            <span className="section__count">{dailyLabel}</span>
+          </div>
+
+          <div className="daily-layout">
+            <div className="daily-copy">
+              <p className="selection-note">
+                不写问题也可以先抽今天的一张牌，快速校准当天的情绪、节奏与行动重点。
+              </p>
+
+              <div className="signal-strip">
+                <span>{dailyReading.spread.title}</span>
+                <span>{dailyReading.tone}</span>
+                <span>完整中文解读</span>
+              </div>
+
+              {dailyRevealed ? (
+                <>
+                  <div className="daily-copy__block">
+                    <h3>今日提示</h3>
+                    <p>{dailyInsight.message}</p>
+                  </div>
+
+                  <div className="daily-copy__block">
+                    <h3>今日建议</h3>
+                    <ul className="advice-list">
+                      {dailyReading.advice.map((entry) => (
+                        <li key={entry}>{entry}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <p className="selection-note">
+                  先翻开牌面，再看今天的解读、关键词和行动建议。
+                </p>
+              )}
+
+              <div className="draw-summary__actions">
+                <button
+                  className="primary-button"
+                  disabled={dailyRevealed}
+                  type="button"
+                  onClick={() => setDailyRevealed(true)}
+                >
+                  {dailyRevealed ? '今日牌面已揭晓' : '揭晓今日能量'}
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={!dailyRevealed}
+                  type="button"
+                  onClick={() => void handleShareDaily()}
+                >
+                  分享今日抽牌
+                </button>
+              </div>
+
+              {dailyShareMessage ? (
+                <p className="selection-note">{dailyShareMessage}</p>
+              ) : null}
+            </div>
+
+            <div className="daily-card-slot">
+              <TarotCardButton
+                entry={dailyCard}
+                revealed={dailyRevealed}
+                onReveal={() => setDailyRevealed(true)}
+              />
+            </div>
+          </div>
+        </section>
 
         <section className="panel section">
           <div className="section__heading">
@@ -514,6 +721,14 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
               <button className="ghost-button" type="button" onClick={handleReset}>
                 开启新一轮占卜
               </button>
+              <button
+                className="ghost-button"
+                disabled={!allRevealed}
+                type="button"
+                onClick={() => void handleShareReading()}
+              >
+                分享这次结果
+              </button>
             </div>
 
             {!allRevealed ? (
@@ -592,6 +807,10 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                 </article>
               </div>
             )}
+
+            {allRevealed && resultShareMessage ? (
+              <p className="selection-note">{resultShareMessage}</p>
+            ) : null}
           </section>
         ) : null}
 
@@ -881,6 +1100,130 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
             <CardEncyclopedia featuredCardIds={reading.cards.map((entry) => entry.card.id)} />
           </>
         ) : null}
+
+        <section className="panel section">
+          <div className="section__heading">
+            <div>
+              <p className="eyebrow">Archive</p>
+              <h2>本地自动归档</h2>
+            </div>
+            <span className="section__count">{archiveEntries.length} 条</span>
+          </div>
+
+          <div className="archive-toolbar">
+            <p className="selection-note">
+              每次完整揭晓后的结果都会自动保存在本地浏览器，方便回看与快速分享。
+            </p>
+
+            {archiveEntries.length > 0 ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleClearArchive}
+              >
+                清空自动归档
+              </button>
+            ) : null}
+          </div>
+
+          {archiveEntries.length === 0 ? (
+            <p className="selection-note">
+              还没有自动归档。完成一次完整占卜后，这里会自动出现回看卡片。
+            </p>
+          ) : (
+            <div className="archive-list">
+              {archiveEntries.map((entry) => {
+                const isExpanded = entry.id === expandedArchiveId
+
+                return (
+                  <article
+                    key={entry.id}
+                    className={`archive-card ${isExpanded ? 'is-active' : ''}`}
+                  >
+                    <div className="archive-card__meta">
+                      <p className="eyebrow">Saved Reading</p>
+                      <span className="section__count">
+                        {formatArchiveTime(entry.createdAt)}
+                      </span>
+                    </div>
+
+                    <h3>{entry.question}</h3>
+
+                    <div className="signal-strip">
+                      <span>{entry.topicLabel}</span>
+                      <span>{entry.spreadTitle}</span>
+                      <span>{entry.tone}</span>
+                    </div>
+
+                    <p>{entry.summary}</p>
+
+                    <div className="draw-summary__actions">
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() =>
+                          setExpandedArchiveId(isExpanded ? null : entry.id)
+                        }
+                      >
+                        {isExpanded ? '收起详情' : '查看详情'}
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => void handleShareArchive(entry)}
+                      >
+                        分享归档
+                      </button>
+                    </div>
+
+                    {isExpanded ? (
+                      <div className="archive-card__details">
+                        <div className="archive-card__block">
+                          <h4>牌阵回看</h4>
+                          <ul className="result-list">
+                            {entry.cards.map((card) => (
+                              <li
+                                key={`${entry.id}-${card.positionLabel}-${card.cardName}`}
+                              >
+                                <strong>{card.positionLabel}</strong>
+                                <span>
+                                  {card.cardName} ·{' '}
+                                  {card.orientation === 'up' ? '正位' : '逆位'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="archive-card__block">
+                          <h4>行动建议</h4>
+                          <ul className="advice-list">
+                            {entry.advice.map((advice) => (
+                              <li key={`${entry.id}-${advice}`}>{advice}</li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="archive-card__block">
+                          <h4>关键信号</h4>
+                          <div className="signal-strip">
+                            {entry.dominantSignals.map((signal) => (
+                              <span key={`${entry.id}-${signal}`}>{signal}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+          )}
+
+          {archiveShareMessage ? (
+            <p className="selection-note">{archiveShareMessage}</p>
+          ) : null}
+        </section>
       </main>
     </div>
   )
