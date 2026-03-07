@@ -2,25 +2,57 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { TarotCardButton } from './components/TarotCardButton'
 import { SPREADS } from './data/spreads'
-import { TOPICS } from './data/topics'
+import { TOPICS, TOPIC_BY_ID } from './data/topics'
+import type { SavedReadingEntry } from './domain/history'
 import type { ReadingResult, TopicId } from './domain/tarot'
 import { createReading } from './engine/reading'
+import { createDailyReading, formatDailyLabel } from './lib/daily'
+import {
+  buildSavedReadingEntry,
+  clearReadingHistory,
+  loadReadingHistory,
+  saveReadingHistoryEntry,
+} from './lib/history'
+import {
+  buildReadingShareText,
+  buildSavedReadingShareText,
+  shareText,
+} from './lib/share'
 
 interface AppProps {
   shuffleDelayMs?: number
 }
+
+const formatHistoryTime = (value: string) =>
+  new Intl.DateTimeFormat('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 
 function App({ shuffleDelayMs = 1200 }: AppProps) {
   const [question, setQuestion] = useState('')
   const [topic, setTopic] = useState<TopicId | null>(null)
   const [spreadId, setSpreadId] = useState<string | null>(null)
   const [reading, setReading] = useState<ReadingResult | null>(null)
+  const [history, setHistory] = useState<SavedReadingEntry[]>(() => loadReadingHistory())
+  const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null)
   const [isShuffling, setIsShuffling] = useState(false)
   const [revealedPositions, setRevealedPositions] = useState<string[]>([])
+  const [dailyReading] = useState(() => createDailyReading())
+  const [dailyLabel] = useState(() => formatDailyLabel())
+  const [dailyRevealed, setDailyRevealed] = useState(false)
+  const [resultShareMessage, setResultShareMessage] = useState<string | null>(null)
+  const [dailyShareMessage, setDailyShareMessage] = useState<string | null>(null)
+  const [historyShareMessage, setHistoryShareMessage] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
+  const lastSavedReadingIdRef = useRef<string | null>(null)
 
   const selectedTopic = TOPICS.find((entry) => entry.id === topic) ?? null
   const selectedSpread = SPREADS.find((entry) => entry.id === spreadId) ?? null
+  const dailyCard = dailyReading.cards[0]
+  const dailyInsight = dailyReading.positionReadings[0]
   const isLocked = isShuffling || reading !== null
   const canDraw =
     question.trim().length > 0 &&
@@ -39,11 +71,35 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     }
   }, [])
 
+  const persistCompletedReading = (
+    nextReading: ReadingResult,
+    nextRevealedPositions: string[],
+  ) => {
+    if (nextRevealedPositions.length !== nextReading.cards.length) {
+      return
+    }
+
+    const entry = buildSavedReadingEntry(
+      nextReading,
+      TOPIC_BY_ID[nextReading.input.topic].label,
+    )
+
+    if (entry.id === lastSavedReadingIdRef.current) {
+      return
+    }
+
+    setHistory(saveReadingHistoryEntry(entry))
+    setHistoryExpandedId(entry.id)
+    lastSavedReadingIdRef.current = entry.id
+  }
+
   const handleDraw = () => {
     if (!canDraw || topic === null || spreadId === null) {
       return
     }
 
+    setResultShareMessage(null)
+    setHistoryShareMessage(null)
     setRevealedPositions([])
 
     const nextReading = createReading(
@@ -70,9 +126,14 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   }
 
   const handleReveal = (positionKey: string) => {
-    setRevealedPositions((current) =>
-      current.includes(positionKey) ? current : [...current, positionKey],
-    )
+    if (reading === null || revealedPositions.includes(positionKey)) {
+      return
+    }
+
+    const nextRevealedPositions = [...revealedPositions, positionKey]
+
+    setRevealedPositions(nextRevealedPositions)
+    persistCompletedReading(reading, nextRevealedPositions)
   }
 
   const handleRevealAll = () => {
@@ -80,7 +141,12 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
       return
     }
 
-    setRevealedPositions(reading.cards.map((entry) => entry.drawn.positionKey))
+    const nextRevealedPositions = reading.cards.map(
+      (entry) => entry.drawn.positionKey,
+    )
+
+    setRevealedPositions(nextRevealedPositions)
+    persistCompletedReading(reading, nextRevealedPositions)
   }
 
   const handleReset = () => {
@@ -95,6 +161,64 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     setReading(null)
     setIsShuffling(false)
     setRevealedPositions([])
+    setResultShareMessage(null)
+  }
+
+  const handleShareReading = async () => {
+    if (reading === null || !allRevealed) {
+      return
+    }
+
+    try {
+      const message = await shareText(
+        '浮世占｜占卜结果',
+        buildReadingShareText(reading, TOPIC_BY_ID[reading.input.topic].label),
+      )
+      setResultShareMessage(message)
+    } catch (error) {
+      setResultShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleShareDaily = async () => {
+    if (!dailyRevealed) {
+      return
+    }
+
+    try {
+      const message = await shareText(
+        '浮世占｜每日一张牌',
+        buildReadingShareText(dailyReading, TOPIC_BY_ID.general.label),
+      )
+      setDailyShareMessage(message)
+    } catch (error) {
+      setDailyShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleShareHistory = async (entry: SavedReadingEntry) => {
+    try {
+      const message = await shareText(
+        '浮世占｜历史记录',
+        buildSavedReadingShareText(entry),
+      )
+      setHistoryShareMessage(message)
+    } catch (error) {
+      setHistoryShareMessage(
+        error instanceof Error ? error.message : '分享失败，请稍后再试。',
+      )
+    }
+  }
+
+  const handleClearHistory = () => {
+    clearReadingHistory()
+    setHistory([])
+    setHistoryExpandedId(null)
+    setHistoryShareMessage('历史记录已清空。')
   }
 
   return (
@@ -118,12 +242,90 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
           <div className="hero__meta">
             <span>完整 78 张牌</span>
             <span>支持正位 / 逆位</span>
-            <span>单张与三张牌阵</span>
+            <span>单张到五张牌阵</span>
+            <span>每日一张与历史留存</span>
           </div>
         </div>
       </header>
 
       <main className="layout">
+        <section className="panel section daily-panel">
+          <div className="section__heading">
+            <div>
+              <p className="eyebrow">Daily Card</p>
+              <h2>每日一张牌</h2>
+            </div>
+            <span className="section__count">{dailyLabel}</span>
+          </div>
+
+          <div className="daily-layout">
+            <div className="daily-copy">
+              <p className="selection-note">
+                不写问题也可以先抽今天的一张牌，快速校准当天的情绪、节奏与行动重点。
+              </p>
+
+              <div className="signal-strip">
+                <span>{dailyReading.spread.title}</span>
+                <span>{dailyReading.tone}</span>
+                <span>完整中文解读</span>
+              </div>
+
+              {dailyRevealed ? (
+                <>
+                  <div className="daily-copy__block">
+                    <h3>今日提示</h3>
+                    <p>{dailyInsight.message}</p>
+                  </div>
+
+                  <div className="daily-copy__block">
+                    <h3>今日建议</h3>
+                    <ul className="advice-list">
+                      {dailyReading.advice.map((entry) => (
+                        <li key={entry}>{entry}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <p className="selection-note">
+                  先翻开牌面，再看今天的解读、关键词和行动建议。
+                </p>
+              )}
+
+              <div className="draw-summary__actions">
+                <button
+                  className="primary-button"
+                  disabled={dailyRevealed}
+                  type="button"
+                  onClick={() => setDailyRevealed(true)}
+                >
+                  {dailyRevealed ? '今日牌面已揭晓' : '揭晓今日能量'}
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={!dailyRevealed}
+                  type="button"
+                  onClick={() => void handleShareDaily()}
+                >
+                  分享今日抽牌
+                </button>
+              </div>
+
+              {dailyShareMessage ? (
+                <p className="selection-note">{dailyShareMessage}</p>
+              ) : null}
+            </div>
+
+            <div className="daily-card-slot">
+              <TarotCardButton
+                entry={dailyCard}
+                revealed={dailyRevealed}
+                onReveal={() => setDailyRevealed(true)}
+              />
+            </div>
+          </div>
+        </section>
+
         <section className="panel section">
           <div className="section__heading">
             <div>
@@ -297,6 +499,14 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
               <button className="ghost-button" type="button" onClick={handleReset}>
                 开启新一轮占卜
               </button>
+              <button
+                className="ghost-button"
+                disabled={!allRevealed}
+                type="button"
+                onClick={() => void handleShareReading()}
+              >
+                分享这次结果
+              </button>
             </div>
 
             {!allRevealed ? (
@@ -374,8 +584,136 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                 </article>
               </div>
             )}
+
+            {allRevealed && resultShareMessage ? (
+              <p className="selection-note">{resultShareMessage}</p>
+            ) : null}
           </section>
         ) : null}
+
+        <section className="panel section">
+          <div className="section__heading">
+            <div>
+              <p className="eyebrow">Archive</p>
+              <h2>本地历史记录</h2>
+            </div>
+            <span className="section__count">{history.length} 条</span>
+          </div>
+
+          <div className="history-toolbar">
+            <p className="selection-note">
+              每次完整揭晓后的结果都会自动保存在本地浏览器，方便回看与分享。
+            </p>
+
+            {history.length > 0 ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleClearHistory}
+              >
+                清空记录
+              </button>
+            ) : null}
+          </div>
+
+          {history.length === 0 ? (
+            <p className="selection-note">
+              还没有历史记录。完成一次完整占卜后，这里会自动出现回看卡片。
+            </p>
+          ) : (
+            <div className="history-list">
+              {history.map((entry) => {
+                const isExpanded = entry.id === historyExpandedId
+
+                return (
+                  <article
+                    key={entry.id}
+                    className={`history-card ${isExpanded ? 'is-active' : ''}`}
+                  >
+                    <div className="history-card__meta">
+                      <p className="eyebrow">Saved Reading</p>
+                      <span className="section__count">
+                        {formatHistoryTime(entry.createdAt)}
+                      </span>
+                    </div>
+
+                    <h3>{entry.question}</h3>
+
+                    <div className="signal-strip">
+                      <span>{entry.topicLabel}</span>
+                      <span>{entry.spreadTitle}</span>
+                      <span>{entry.tone}</span>
+                    </div>
+
+                    <p>{entry.summary}</p>
+
+                    <div className="draw-summary__actions">
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() =>
+                          setHistoryExpandedId(isExpanded ? null : entry.id)
+                        }
+                      >
+                        {isExpanded ? '收起详情' : '查看详情'}
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => void handleShareHistory(entry)}
+                      >
+                        分享记录
+                      </button>
+                    </div>
+
+                    {isExpanded ? (
+                      <div className="history-card__details">
+                        <div className="history-card__block">
+                          <h4>牌阵回看</h4>
+                          <ul className="result-list">
+                            {entry.cards.map((card) => (
+                              <li
+                                key={`${entry.id}-${card.positionLabel}-${card.cardName}`}
+                              >
+                                <strong>{card.positionLabel}</strong>
+                                <span>
+                                  {card.cardName} ·{' '}
+                                  {card.orientation === 'up' ? '正位' : '逆位'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="history-card__block">
+                          <h4>行动建议</h4>
+                          <ul className="advice-list">
+                            {entry.advice.map((advice) => (
+                              <li key={`${entry.id}-${advice}`}>{advice}</li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="history-card__block">
+                          <h4>关键信号</h4>
+                          <div className="signal-strip">
+                            {entry.dominantSignals.map((signal) => (
+                              <span key={`${entry.id}-${signal}`}>{signal}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+          )}
+
+          {historyShareMessage ? (
+            <p className="selection-note">{historyShareMessage}</p>
+          ) : null}
+        </section>
       </main>
     </div>
   )

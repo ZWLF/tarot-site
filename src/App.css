@@ -331,6 +331,103 @@
   align-items: center;
 }
 
+.daily-layout,
+.history-list,
+.history-card__details {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+}
+
+.daily-panel {
+  background:
+    radial-gradient(circle at top right, rgba(211, 165, 77, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(17, 29, 41, 0.96), rgba(10, 20, 29, 0.96)),
+    linear-gradient(180deg, rgba(245, 229, 189, 0.05), rgba(245, 229, 189, 0));
+}
+
+.daily-copy,
+.daily-card-slot,
+.history-card {
+  position: relative;
+  z-index: 1;
+}
+
+.daily-copy {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.daily-copy__block,
+.history-card__block {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-copy__block h3,
+.history-card h3,
+.history-card__block h4 {
+  margin: 0;
+}
+
+.daily-card-slot {
+  max-width: 26rem;
+}
+
+.history-toolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.history-toolbar .selection-note {
+  margin: 0;
+  max-width: 42rem;
+}
+
+.history-list {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.history-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(238, 215, 170, 0.12);
+  background:
+    linear-gradient(180deg, rgba(246, 234, 208, 0.08), rgba(246, 234, 208, 0.04));
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.history-card.is-active,
+.history-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(211, 165, 77, 0.36);
+  box-shadow: 0 18px 40px rgba(5, 10, 18, 0.2);
+}
+
+.history-card__meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-card__meta .eyebrow {
+  font-size: 0.82rem;
+}
+
 .deck-fan {
   position: relative;
   min-height: 16rem;
@@ -688,6 +785,11 @@
 }
 
 @media (min-width: 960px) {
+  .daily-layout {
+    grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.92fr);
+    align-items: start;
+  }
+
   .draw-layout {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   }
@@ -735,6 +837,12 @@
   }
 
   .section__heading {
+    flex-direction: column;
+  }
+
+  .history-card__meta,
+  .history-toolbar {
+    align-items: flex-start;
     flex-direction: column;
   }
 }
