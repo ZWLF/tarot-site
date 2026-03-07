@@ -23,8 +23,8 @@ if exist "%PID_FILE%" (
 powershell -NoProfile -Command ^
   "$projectDir = '%PROJECT_DIR%';" ^
   "$pidFile = '%PID_FILE%';" ^
-  "$command = 'title Tarot Dev Server (%PORT%) && cd /d ""' + $projectDir + '"" && npm run dev -- --host %HOST% --port %PORT% --strictPort';" ^
-  "$proc = Start-Process -FilePath 'cmd.exe' -ArgumentList '/k', $command -PassThru;" ^
+  "$command = 'title Tarot Dev Server (%PORT%) && npm run dev -- --host %HOST% --port %PORT% --strictPort';" ^
+  "$proc = Start-Process -FilePath 'cmd.exe' -ArgumentList '/k', $command -WorkingDirectory $projectDir -PassThru;" ^
   "Set-Content -LiteralPath $pidFile -Value $proc.Id -Encoding Ascii"
 
 if errorlevel 1 exit /b %errorlevel%
