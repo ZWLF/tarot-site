@@ -1,0 +1,778 @@
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.app-shell__mist {
+  position: fixed;
+  width: 30rem;
+  height: 30rem;
+  border-radius: 50%;
+  filter: blur(36px);
+  opacity: 0.28;
+  pointer-events: none;
+  animation: drift 18s ease-in-out infinite;
+}
+
+.app-shell__mist--left {
+  top: -8rem;
+  left: -10rem;
+  background: radial-gradient(circle, rgba(185, 46, 65, 0.48), rgba(185, 46, 65, 0));
+}
+
+.app-shell__mist--right {
+  right: -8rem;
+  bottom: -10rem;
+  background: radial-gradient(circle, rgba(211, 165, 77, 0.42), rgba(211, 165, 77, 0));
+  animation-delay: -7s;
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 20px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(234, 221, 192, 0.18);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(17, 29, 41, 0.96), rgba(10, 20, 29, 0.96)),
+    linear-gradient(180deg, rgba(245, 229, 189, 0.05), rgba(245, 229, 189, 0));
+  box-shadow:
+    0 30px 80px rgba(1, 8, 13, 0.45),
+    inset 0 1px 0 rgba(255, 244, 224, 0.08);
+  animation: panel-rise 0.7s ease both;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      120deg,
+      rgba(255, 236, 196, 0.05) 0,
+      rgba(255, 236, 196, 0.05) 2px,
+      transparent 2px,
+      transparent 14px
+    );
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: stretch;
+  max-width: 1180px;
+  margin: 0 auto 20px;
+  padding: 24px;
+}
+
+.hero__seal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 4.75rem;
+  padding: 16px 10px;
+  border-radius: 20px;
+  color: var(--bg-night);
+  background:
+    linear-gradient(180deg, rgba(238, 215, 170, 0.96), rgba(200, 157, 78, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 16px 40px rgba(211, 165, 77, 0.22);
+}
+
+.hero__seal-mark {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.25rem;
+  writing-mode: vertical-rl;
+}
+
+.hero__seal-sub {
+  margin-top: 8px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.18rem;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+.hero__copy {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.22rem;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.section h2,
+.result-panel h3,
+.spread-card h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.12;
+}
+
+.hero h1 {
+  font-size: clamp(2.2rem, 4vw, 4.4rem);
+}
+
+.hero__lede {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 1.03rem;
+}
+
+.hero__meta,
+.signal-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero__meta span,
+.signal-strip span,
+.section__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(238, 215, 170, 0.18);
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: rgba(246, 234, 208, 0.06);
+  backdrop-filter: blur(6px);
+}
+
+.section {
+  padding: 24px;
+}
+
+.section__heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.section__heading--compact {
+  margin-bottom: 14px;
+}
+
+.question-field {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.question-field span {
+  color: var(--text-soft);
+  font-size: 0.96rem;
+}
+
+.question-field textarea {
+  width: 100%;
+  min-height: 8rem;
+  padding: 16px 18px;
+  border: 1px solid rgba(238, 215, 170, 0.18);
+  border-radius: 20px;
+  color: var(--text-main);
+  background:
+    linear-gradient(180deg, rgba(248, 240, 220, 0.08), rgba(248, 240, 220, 0.04));
+  resize: vertical;
+}
+
+.question-field textarea::placeholder {
+  color: rgba(240, 228, 205, 0.48);
+}
+
+.topic-selector {
+  position: relative;
+  z-index: 1;
+}
+
+.pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pill,
+.spread-card,
+.primary-button,
+.ghost-button {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.pill {
+  min-width: 8.5rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(238, 215, 170, 0.14);
+  color: var(--text-main);
+  background: rgba(246, 234, 208, 0.05);
+  text-align: left;
+}
+
+.pill span,
+.spread-card h3,
+.draw-summary__row p,
+.question-echo,
+.reading-entry__title strong {
+  font-size: 1.08rem;
+}
+
+.pill small {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-soft);
+}
+
+.pill:hover,
+.spread-card:hover,
+.primary-button:hover,
+.ghost-button:hover,
+.tarot-card-button:hover .tarot-card__face--back {
+  transform: translateY(-2px);
+}
+
+.pill.is-active,
+.spread-card.is-active {
+  border-color: rgba(211, 165, 77, 0.55);
+  background:
+    linear-gradient(160deg, rgba(211, 165, 77, 0.18), rgba(145, 37, 52, 0.08));
+  box-shadow: 0 12px 28px rgba(211, 165, 77, 0.12);
+}
+
+.selection-note {
+  position: relative;
+  z-index: 1;
+  margin: 14px 0 0;
+  color: var(--text-soft);
+}
+
+.spread-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+}
+
+.spread-card {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(238, 215, 170, 0.12);
+  color: var(--text-main);
+  background:
+    linear-gradient(180deg, rgba(22, 35, 47, 0.96), rgba(11, 22, 31, 0.94));
+  text-align: left;
+}
+
+.spread-card__topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.spread-card p {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+}
+
+.panel-draw.is-shuffling .deck-fan__card {
+  animation: shuffle 0.9s ease-in-out infinite;
+}
+
+.draw-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+  align-items: center;
+}
+
+.deck-fan {
+  position: relative;
+  min-height: 16rem;
+}
+
+.deck-fan__card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(11rem, 42vw);
+  aspect-ratio: 5 / 8;
+  border-radius: 24px;
+  border: 1px solid rgba(238, 215, 170, 0.16);
+  background:
+    radial-gradient(circle at top, rgba(211, 165, 77, 0.18), transparent 45%),
+    linear-gradient(180deg, rgba(139, 23, 43, 0.55), rgba(28, 47, 70, 0.95)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(241, 226, 195, 0.15) 0,
+      rgba(241, 226, 195, 0.15) 2px,
+      transparent 2px,
+      transparent 13px
+    );
+  box-shadow:
+    0 24px 50px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(255, 244, 224, 0.05);
+}
+
+.deck-fan__card::before {
+  content: '卍';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(246, 234, 208, 0.52);
+  font-size: 2.4rem;
+  letter-spacing: 0.3rem;
+}
+
+.deck-fan__card--one {
+  transform: translate(-62%, -46%) rotate(-13deg);
+}
+
+.deck-fan__card--two {
+  transform: translate(-50%, -50%) rotate(-2deg);
+}
+
+.deck-fan__card--three {
+  transform: translate(-38%, -45%) rotate(11deg);
+}
+
+.draw-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.draw-summary__row {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(246, 234, 208, 0.05);
+  border: 1px solid rgba(238, 215, 170, 0.12);
+}
+
+.draw-summary__row span,
+.tarot-card-button__prompt,
+.tarot-card-button__status,
+.result-list span,
+.advice-list,
+.reading-entry p,
+.result-panel p {
+  color: var(--text-soft);
+}
+
+.draw-summary__row p,
+.result-panel p,
+.result-list,
+.advice-list {
+  margin: 0;
+}
+
+.draw-summary__actions,
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary-button,
+.ghost-button {
+  padding: 0.9rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.primary-button {
+  color: var(--bg-night);
+  background: linear-gradient(135deg, var(--accent-gold), #edd6a3);
+  box-shadow: 0 12px 28px rgba(211, 165, 77, 0.18);
+}
+
+.ghost-button {
+  color: var(--text-main);
+  background: rgba(246, 234, 208, 0.04);
+  border: 1px solid rgba(238, 215, 170, 0.16);
+}
+
+.primary-button:disabled,
+.ghost-button:disabled,
+.pill:disabled,
+.spread-card:disabled,
+.question-field textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.card-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+}
+
+.tarot-card-button {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  text-align: left;
+}
+
+.tarot-card-button__position {
+  color: var(--accent-gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.06rem;
+}
+
+.tarot-card {
+  perspective: 1200px;
+}
+
+.tarot-card__inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 8;
+  transform-style: preserve-3d;
+  transition: transform 0.9s ease;
+}
+
+.tarot-card-button.is-revealed .tarot-card__inner {
+  transform: rotateY(180deg);
+}
+
+.tarot-card__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  backface-visibility: hidden;
+  overflow: hidden;
+  box-shadow:
+    0 24px 48px rgba(2, 8, 14, 0.34),
+    inset 0 1px 0 rgba(255, 244, 224, 0.05);
+}
+
+.tarot-card__face--back {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(180deg, rgba(139, 23, 43, 0.78), rgba(15, 26, 38, 0.94)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(247, 233, 204, 0.14) 0,
+      rgba(247, 233, 204, 0.14) 2px,
+      transparent 2px,
+      transparent 12px
+    );
+  border: 1px solid rgba(238, 215, 170, 0.16);
+}
+
+.tarot-card__face--back::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(255, 245, 225, 0.15);
+  border-radius: 18px;
+}
+
+.tarot-card__back-title {
+  position: relative;
+  z-index: 1;
+  font-size: 1.2rem;
+  letter-spacing: 0.5rem;
+  writing-mode: vertical-rl;
+  color: rgba(249, 240, 222, 0.72);
+}
+
+.tarot-card__face--front {
+  transform: rotateY(180deg);
+  display: grid;
+  padding: 18px;
+  align-content: space-between;
+  background:
+    linear-gradient(180deg, rgba(250, 240, 218, 0.96), rgba(231, 212, 178, 0.96));
+  color: var(--bg-night);
+}
+
+.tarot-card__face--front::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(28, 47, 70, 0.14);
+  border-radius: 18px;
+}
+
+.accent-gold {
+  background:
+    linear-gradient(180deg, rgba(248, 239, 220, 0.96), rgba(236, 214, 176, 0.94)),
+    radial-gradient(circle at top, rgba(211, 165, 77, 0.26), transparent 42%);
+}
+
+.accent-crimson {
+  background:
+    linear-gradient(180deg, rgba(250, 235, 229, 0.96), rgba(240, 209, 199, 0.94)),
+    radial-gradient(circle at top, rgba(185, 46, 65, 0.22), transparent 42%);
+}
+
+.accent-azure {
+  background:
+    linear-gradient(180deg, rgba(233, 241, 246, 0.96), rgba(206, 223, 233, 0.94)),
+    radial-gradient(circle at top, rgba(45, 85, 122, 0.18), transparent 42%);
+}
+
+.accent-jade {
+  background:
+    linear-gradient(180deg, rgba(234, 241, 235, 0.96), rgba(211, 226, 214, 0.94)),
+    radial-gradient(circle at top, rgba(76, 111, 89, 0.18), transparent 42%);
+}
+
+.tarot-card__art {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  height: 100%;
+}
+
+.tarot-card__ribbon {
+  font-size: 0.84rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+}
+
+.tarot-card__title {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  min-height: 8.5rem;
+}
+
+.tarot-card__title strong {
+  font-size: 1.28rem;
+}
+
+.tarot-card__title small {
+  color: rgba(20, 33, 44, 0.72);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  letter-spacing: 0.08rem;
+}
+
+.tarot-card__glyph {
+  font-size: 0.9rem;
+  letter-spacing: 0.12rem;
+  writing-mode: vertical-rl;
+  justify-self: end;
+}
+
+.result-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.result-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(246, 234, 208, 0.05);
+  border: 1px solid rgba(238, 215, 170, 0.12);
+}
+
+.question-echo {
+  color: var(--text-main);
+  font-size: 1.1rem;
+}
+
+.result-list,
+.advice-list {
+  display: grid;
+  gap: 10px;
+  padding-left: 1.15rem;
+}
+
+.result-list li,
+.advice-list li {
+  padding-left: 0.1rem;
+}
+
+.result-list strong,
+.reading-entry__title span,
+.tarot-card-button__status {
+  color: var(--text-main);
+}
+
+.reading-entries {
+  display: grid;
+  gap: 14px;
+}
+
+.reading-entry {
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(238, 215, 170, 0.1);
+}
+
+.reading-entry:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.reading-entry__title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+@media (min-width: 760px) {
+  .spread-grid,
+  .card-grid,
+  .result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .result-panel--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 960px) {
+  .draw-layout {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .result-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .result-panel {
+    grid-column: span 6;
+  }
+
+  .result-panel--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero__seal {
+    justify-self: start;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .hero__seal-mark,
+  .hero__seal-sub {
+    writing-mode: horizontal-tb;
+  }
+
+  .section,
+  .hero {
+    padding: 18px;
+  }
+
+  .section__heading {
+    flex-direction: column;
+  }
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(24px, -18px, 0) scale(1.08);
+  }
+}
+
+@keyframes shuffle {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) rotate(-2deg);
+  }
+
+  30% {
+    transform: translate(-64%, -46%) rotate(-12deg);
+  }
+
+  60% {
+    transform: translate(-36%, -45%) rotate(10deg);
+  }
+}

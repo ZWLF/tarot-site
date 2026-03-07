@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Noto Serif SC', serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #f6ead0;
+  background:
+    radial-gradient(circle at top, rgba(45, 85, 122, 0.32), transparent 34%),
+    radial-gradient(circle at 20% 20%, rgba(185, 46, 65, 0.18), transparent 30%),
+    linear-gradient(180deg, #09131b, #132332 44%, #0d1a25 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --bg-night: #14212c;
+  --accent-gold: #d3a54d;
+  --text-main: #f6ead0;
+  --text-soft: rgba(246, 234, 208, 0.76);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #09131b;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
