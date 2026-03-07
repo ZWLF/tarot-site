@@ -90,6 +90,12 @@ export interface PositionReading {
   keywords: string[]
 }
 
+export interface ActionPlanStep {
+  id: string
+  title: string
+  detail: string
+}
+
 export interface ReadingResult {
   input: ReadingInput
   spread: SpreadDefinition
@@ -97,6 +103,47 @@ export interface ReadingResult {
   positionReadings: PositionReading[]
   summary: string
   advice: string[]
+  actionPlan: ActionPlanStep[]
   tone: string
   dominantSignals: string[]
+}
+
+export interface FollowUpRecord {
+  id: string
+  question: string
+  createdAt: string
+  summary: string
+  tone: string
+  dominantSignals: string[]
+  leadAdvice: string
+  cards: Array<{
+    positionLabel: string
+    cardName: string
+    orientation: Orientation
+  }>
+}
+
+export interface SavedActionPlanStep extends ActionPlanStep {
+  done: boolean
+}
+
+export interface SavedReadingRecord {
+  id: string
+  title: string
+  category: TopicId
+  tags: string[]
+  createdAt: string
+  question: string
+  spreadTitle: string
+  topicLabel: string
+  tone: string
+  summary: string
+  dominantSignals: string[]
+  cards: Array<{
+    positionLabel: string
+    cardName: string
+    orientation: Orientation
+  }>
+  actionPlan: SavedActionPlanStep[]
+  followUps: FollowUpRecord[]
 }

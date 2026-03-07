@@ -288,6 +288,68 @@
   color: var(--text-soft);
 }
 
+.guide-steps,
+.glossary-grid,
+.action-plan-list,
+.follow-up-thread,
+.history-list {
+  display: grid;
+  gap: 16px;
+}
+
+.utility-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.utility-row--stack {
+  margin-bottom: 16px;
+}
+
+.utility-toggle,
+.suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.utility-toggle .pill,
+.suggestion-row .pill {
+  flex: 1 1 10rem;
+}
+
+.utility-toggle--wrap .pill {
+  flex: 1 1 8rem;
+}
+
+.inline-input {
+  display: grid;
+  gap: 8px;
+}
+
+.inline-input span {
+  color: var(--text-soft);
+  font-size: 0.96rem;
+}
+
+.inline-input input,
+.inline-input select {
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(238, 215, 170, 0.18);
+  border-radius: 18px;
+  color: var(--text-main);
+  background: rgba(246, 234, 208, 0.05);
+}
+
+.inline-input input::placeholder {
+  color: rgba(240, 228, 205, 0.48);
+}
+
 .spread-grid {
   position: relative;
   z-index: 1;
@@ -317,6 +379,10 @@
 .spread-card p {
   margin: 10px 0 0;
   color: var(--text-soft);
+}
+
+.question-field--compact {
+  margin-bottom: 0;
 }
 
 .panel-draw.is-shuffling .deck-fan__card {
@@ -675,10 +741,164 @@
   margin-bottom: 8px;
 }
 
+.check-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(238, 215, 170, 0.12);
+  background: rgba(246, 234, 208, 0.05);
+}
+
+.check-card input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.35rem;
+  accent-color: var(--accent-gold);
+}
+
+.check-card strong,
+.history-card strong,
+.encyclopedia-chip strong,
+.encyclopedia-detail h3,
+.follow-up-card strong {
+  color: var(--text-main);
+  font-size: 1.08rem;
+}
+
+.check-card p,
+.history-card p,
+.follow-up-card p,
+.encyclopedia-detail p {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+}
+
+.check-card.is-done {
+  border-color: rgba(211, 165, 77, 0.45);
+  background: linear-gradient(160deg, rgba(211, 165, 77, 0.14), rgba(246, 234, 208, 0.04));
+}
+
+.follow-up-layout,
+.save-history-layout,
+.encyclopedia-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.follow-up-card,
+.history-card,
+.encyclopedia-detail {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(238, 215, 170, 0.12);
+  background: rgba(246, 234, 208, 0.05);
+}
+
+.follow-up-card .question-echo,
+.history-card .question-echo {
+  margin-top: 8px;
+}
+
+.history-card summary {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+  list-style: none;
+}
+
+.history-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-card summary small,
+.encyclopedia-chip small,
+.encyclopedia-detail__header p {
+  color: var(--text-soft);
+}
+
+.history-card summary span {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: rgba(246, 234, 208, 0.06);
+}
+
+.history-meta {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.history-meta h4,
+.encyclopedia-columns h4 {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.encyclopedia-note {
+  margin-bottom: 18px;
+}
+
+.encyclopedia-list {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.encyclopedia-chip {
+  display: grid;
+  gap: 4px;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(238, 215, 170, 0.12);
+  color: var(--text-main);
+  background: rgba(246, 234, 208, 0.04);
+  text-align: left;
+}
+
+.encyclopedia-chip.is-active {
+  border-color: rgba(211, 165, 77, 0.55);
+  background: linear-gradient(160deg, rgba(211, 165, 77, 0.18), rgba(145, 37, 52, 0.08));
+}
+
+.encyclopedia-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.encyclopedia-detail__header {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.encyclopedia-detail__header p {
+  margin: 6px 0 0;
+}
+
+.encyclopedia-columns {
+  display: grid;
+  gap: 16px;
+}
+
 @media (min-width: 760px) {
   .spread-grid,
   .card-grid,
   .result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guide-steps,
+  .glossary-grid,
+  .action-plan-list,
+  .encyclopedia-columns,
+  .history-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -706,6 +926,16 @@
 
   .result-panel--wide {
     grid-column: 1 / -1;
+  }
+
+  .follow-up-layout,
+  .save-history-layout,
+  .encyclopedia-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .history-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -735,6 +965,11 @@
   }
 
   .section__heading {
+    flex-direction: column;
+  }
+
+  .history-card summary,
+  .encyclopedia-detail__header {
     flex-direction: column;
   }
 }
