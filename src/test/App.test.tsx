@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from '../App'
 
@@ -8,78 +9,66 @@ describe('App tarot flow', () => {
   })
 
   it(
-    'supports daily card, draw, archive, action plan, follow-up, save history, and encyclopedia flow',
-    () => {
-      render(<App shuffleDelayMs={0} />)
+    'shows all 78 cards on the deck stage and completes a holy triangle reading',
+    async () => {
+    const user = userEvent.setup()
 
-      expect(
-        screen.getByRole('heading', { name: '每日一张牌' }),
-      ).toBeInTheDocument()
-      fireEvent.click(screen.getByRole('button', { name: '揭晓今日能量' }))
-      expect(screen.getByRole('heading', { name: '今日提示' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '分享今日抽牌' })).toBeEnabled()
+    render(<App shuffleDelayMs={0} />)
 
-      const drawButton = screen.getByRole('button', { name: '洗牌并抽牌' })
-      expect(drawButton).toBeDisabled()
+    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(78)
 
-      fireEvent.change(screen.getByLabelText('占卜问题'), {
-        target: { value: '我该如何面对下一步的关系选择？' },
-      })
-      fireEvent.click(screen.getByRole('button', { name: /爱情/ }))
-      fireEvent.click(screen.getByRole('button', { name: /过去 \/ 现在 \/ 未来/ }))
+    fireEvent.change(screen.getByLabelText('占卜问题'), {
+      target: { value: '我接下来该怎样处理这段关系？' },
+    })
+    await user.click(screen.getByRole('button', { name: '爱情' }))
+    await user.click(screen.getByRole('button', { name: '圣三角' }))
+    await user.click(screen.getByRole('button', { name: '现状 / 阻碍 / 建议' }))
+    await user.click(screen.getByRole('button', { name: '洗牌并抽牌' }))
 
-      expect(drawButton).toBeEnabled()
+    expect(screen.getByText('现状')).toBeInTheDocument()
+    expect(screen.getByText('阻碍')).toBeInTheDocument()
+    expect(screen.getByText('建议')).toBeInTheDocument()
 
-      fireEvent.click(drawButton)
+    await user.click(screen.getByRole('button', { name: '全部揭晓' }))
 
-      expect(screen.getByText('过去')).toBeInTheDocument()
-      expect(screen.getByText('现在')).toBeInTheDocument()
-      expect(screen.getByText('未来')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '记录中心' })).toBeInTheDocument()
+    expect(screen.getAllByText('我接下来该怎样处理这段关系？').length).toBeGreaterThan(0)
 
-      fireEvent.click(screen.getByRole('button', { name: '全部揭晓' }))
+    fireEvent.change(screen.getByLabelText('记录标题'), {
+      target: { value: '关系推进判断' },
+    })
+    fireEvent.change(screen.getByLabelText('记录标签'), {
+      target: { value: '关系 决策' },
+    })
+    await user.click(screen.getByRole('button', { name: '加入收藏' }))
+    await user.click(screen.getByRole('button', { name: '收藏' }))
 
-      expect(screen.getByRole('button', { name: '分享这次结果' })).toBeEnabled()
-      expect(screen.getByRole('heading', { name: '占卜后行动计划' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '追问模式' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '78 张牌卡百科' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '本地自动归档' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '收起详情' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '牌阵回看' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '关键信号' })).toBeInTheDocument()
-
-      const actionCheckboxes = screen.getAllByRole('checkbox')
-      expect(actionCheckboxes.length).toBeGreaterThan(0)
-      fireEvent.click(actionCheckboxes[0])
-      expect(actionCheckboxes[0]).toBeChecked()
-
-      fireEvent.change(screen.getByLabelText('追问问题'), {
-        target: { value: '如果我先保持距离，会发生什么变化？' },
-      })
-      fireEvent.click(screen.getByRole('button', { name: '生成追问解读' }))
-
-      expect(screen.getByText('追问 1')).toBeInTheDocument()
-      expect(screen.getByText('“如果我先保持距离，会发生什么变化？”')).toBeInTheDocument()
-
-      fireEvent.change(screen.getByLabelText('保存标题'), {
-        target: { value: '关系选择占卜' },
-      })
-      fireEvent.change(screen.getByLabelText('保存标签'), {
-        target: { value: '感情, 决策' },
-      })
-      fireEvent.click(screen.getByRole('button', { name: '保存到历史' }))
-
-      expect(screen.getByText('已保存到历史占卜，可以按分类和标签回看。')).toBeInTheDocument()
-      expect(screen.getByText('关系选择占卜')).toBeInTheDocument()
-
-      const savedRaw = window.localStorage.getItem('ukiyo-tarot.saved-readings')
-      expect(savedRaw).not.toBeNull()
-      expect(savedRaw).toContain('关系选择占卜')
-
-      fireEvent.click(screen.getByRole('button', { name: '开启新一轮占卜' }))
-
-      expect(screen.getByLabelText('占卜问题')).toHaveValue('')
-      expect(screen.getByRole('button', { name: '洗牌并抽牌' })).toBeDisabled()
+    expect(screen.getByText('关系推进判断')).toBeInTheDocument()
     },
-    20000,
+    15000,
+  )
+
+  it(
+    'supports daily reflection and records it in the record center',
+    async () => {
+    const user = userEvent.setup()
+
+    render(<App shuffleDelayMs={0} />)
+
+    await user.click(screen.getByRole('button', { name: '揭晓今日能量' }))
+    fireEvent.change(screen.getByLabelText('晨间意图'), {
+      target: { value: '今天要稳住节奏' },
+    })
+    fireEvent.change(screen.getByLabelText('晚间复盘'), {
+      target: { value: '晚上的节奏确实更稳了。' },
+    })
+    await user.click(screen.getByRole('button', { name: '强共鸣' }))
+    await user.click(screen.getByRole('button', { name: '保存今日记录' }))
+    await user.click(screen.getByRole('button', { name: '每日一张' }))
+
+    expect(screen.getByText('今天要稳住节奏')).toBeInTheDocument()
+    expect(screen.getAllByText('晚上的节奏确实更稳了。').length).toBeGreaterThan(0)
+    },
+    10000,
   )
 })
