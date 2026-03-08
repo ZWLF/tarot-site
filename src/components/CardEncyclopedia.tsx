@@ -79,7 +79,10 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
   const deferredQuery = useDeferredValue(query)
 
   const featuredCards = TAROT_DECK.filter((card) => featuredCardIds.includes(card.id))
-  const sourceCards = scope === 'drawn' && featuredCards.length > 0 ? featuredCards : TAROT_DECK
+  const sourceCards =
+    scope === 'drawn'
+      ? featuredCards
+      : TAROT_DECK
   const visibleCards = sourceCards.filter((card) => matchesQuery(card, deferredQuery))
   const resolvedSelectedCardId =
     selectedCardId !== null && sourceCards.some((card) => card.id === selectedCardId)
@@ -153,7 +156,11 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
               </button>
             ))
           ) : (
-            <p className="selection-note">没有找到匹配的牌，试试换一个关键词。</p>
+            <p className="selection-note">
+              {scope === 'drawn'
+                ? '当前还没有可聚焦的抽牌结果，先完成一次抽牌，或切换到完整牌库。'
+                : '没有找到匹配的牌，试试换一个关键词。'}
+            </p>
           )}
         </div>
 

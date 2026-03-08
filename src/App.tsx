@@ -1,88 +1,74 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { CardEncyclopedia } from './components/CardEncyclopedia'
+import { DeckStage } from './components/DeckStage'
 import { GuidePanel } from './components/GuidePanel'
+import { RecordCenter } from './components/RecordCenter'
+import { SpreadLayoutBoard } from './components/SpreadLayoutBoard'
 import { TarotCardButton } from './components/TarotCardButton'
 import { SPREADS } from './data/spreads'
 import { TOPICS, TOPIC_BY_ID } from './data/topics'
-import type { SavedReadingEntry } from './domain/history'
 import type {
+  DailyReflection,
   FollowUpRecord,
   ReadingResult,
-  SavedReadingRecord,
   TopicId,
 } from './domain/tarot'
-import { createReading } from './engine/reading'
+import { createReading, getSpreadPreviewPositions } from './engine/reading'
 import {
+  buildDailyRecord,
+  buildReadingRecordFromReading,
+  buildReadingRecordId,
   loadGuideDismissed,
-  loadSavedReadings,
+  loadReadingRecords,
+  saveReadingRecord,
   storeGuideDismissed,
-  storeSavedReadings,
 } from './engine/storage'
 import { createDailyReading, formatDailyLabel } from './lib/daily'
-import {
-  buildSavedReadingEntry,
-  clearReadingHistory,
-  loadReadingHistory,
-  saveReadingHistoryEntry,
-} from './lib/history'
-import {
-  buildReadingShareText,
-  buildSavedReadingShareText,
-  shareText,
-} from './lib/share'
+import { buildReadingShareText, downloadPosterPng, shareText } from './lib/share'
 
 interface AppProps {
   shuffleDelayMs?: number
 }
 
-type HistoryFilter = TopicId | 'all'
+type RecordFilter = 'all' | 'saved' | 'auto' | 'daily'
 
 const FOLLOW_UP_SUGGESTIONS = [
-  '如果我选择 A，会怎样发展？',
-  '我现在最该先做什么？',
-  '这段关系还值得继续投入吗？',
+  '如果我主动推进一次，会发生什么？',
+  '这件事最值得优先处理的动作是什么？',
+  '我需要先停下来校准什么？',
 ]
+
+const NAV_ITEMS = [
+  { id: 'daily', label: '每日一张' },
+  { id: 'reading', label: '开始占卜' },
+  { id: 'result', label: '结果解读' },
+  { id: 'records', label: '记录中心' },
+  { id: 'encyclopedia', label: '牌卡百科' },
+] as const
 
 const createId = () =>
   globalThis.crypto?.randomUUID?.() ??
   `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
-const createDefaultTitle = (question: string) => {
-  const trimmed = question.trim()
+const createDefaultTitle = (question: string) =>
+  question.trim().length <= 18 ? question.trim() : `${question.trim().slice(0, 18)}…`
 
-  if (trimmed.length <= 18) {
-    return trimmed
-  }
-
-  return `${trimmed.slice(0, 18)}…`
-}
-
-const parseTags = (rawValue: string) =>
+const parseTags = (value: string) =>
   Array.from(
     new Set(
-      rawValue
+      value
         .split(/[，,、\s]+/)
         .map((entry) => entry.trim())
         .filter(Boolean),
     ),
   )
 
-const formatTimestamp = (iso: string) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso))
-
-const formatArchiveTime = (value: string) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
+const createEmptyReflection = (): DailyReflection => ({
+  morningIntent: '',
+  eveningReview: '',
+  resonance: null,
+})
 
 const createFollowUpRecord = (
   question: string,
@@ -94,7 +80,7 @@ const createFollowUpRecord = (
   summary: reading.summary,
   tone: reading.tone,
   dominantSignals: reading.dominantSignals,
-  leadAdvice: reading.advice[0] ?? '先记录你最强烈的直觉，再决定下一步。',
+  leadAdvice: reading.advice[0] ?? '先记录你此刻最强烈的直觉。',
   cards: reading.cards.map((entry) => ({
     positionLabel: entry.positionLabel,
     cardName: entry.card.nameZh,
@@ -102,77 +88,77 @@ const createFollowUpRecord = (
   })),
 })
 
+const scrollToSection = (sectionId: string) => {
+  const section = document.getElementById(sectionId)
+
+  if (typeof section?.scrollIntoView !== 'function') {
+    return
+  }
+
+  section.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}
+
 function App({ shuffleDelayMs = 1200 }: AppProps) {
+  const [navSection, setNavSection] =
+    useState<(typeof NAV_ITEMS)[number]['id']>('daily')
   const [question, setQuestion] = useState('')
   const [topic, setTopic] = useState<TopicId | null>(null)
   const [spreadId, setSpreadId] = useState<string | null>(null)
+  const [variantId, setVariantId] = useState<string | undefined>(undefined)
   const [reading, setReading] = useState<ReadingResult | null>(null)
-  const [isShuffling, setIsShuffling] = useState(false)
   const [revealedPositions, setRevealedPositions] = useState<string[]>([])
+  const [isShuffling, setIsShuffling] = useState(false)
+  const [deckHighlights, setDeckHighlights] = useState<string[]>([])
   const [actionPlanDoneIds, setActionPlanDoneIds] = useState<string[]>([])
   const [followUpQuestion, setFollowUpQuestion] = useState('')
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>([])
-  const [saveTitle, setSaveTitle] = useState('')
-  const [saveCategory, setSaveCategory] = useState<TopicId>('general')
-  const [saveTagsInput, setSaveTagsInput] = useState('')
-  const [saveNotice, setSaveNotice] = useState<string | null>(null)
-  const [savedReadings, setSavedReadings] = useState<SavedReadingRecord[]>(
-    () => loadSavedReadings(),
-  )
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all')
-  const [historyQuery, setHistoryQuery] = useState('')
+  const [recordTitle, setRecordTitle] = useState('')
+  const [recordTagsInput, setRecordTagsInput] = useState('')
+  const [recordNotice, setRecordNotice] = useState<string | null>(null)
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [records, setRecords] = useState(() => loadReadingRecords())
+  const [recordFilter, setRecordFilter] = useState<RecordFilter>('all')
+  const [recordQuery, setRecordQuery] = useState('')
+  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null)
   const [guideDismissed, setGuideDismissed] = useState(() => loadGuideDismissed())
-  const [dailyReading] = useState(() => createDailyReading())
-  const [dailyLabel] = useState(() => formatDailyLabel())
+  const [dailyDate] = useState(() => new Date())
+  const [dailyReading] = useState(() => createDailyReading(dailyDate))
+  const [dailyLabel] = useState(() => formatDailyLabel(dailyDate))
   const [dailyRevealed, setDailyRevealed] = useState(false)
-  const [archiveEntries, setArchiveEntries] = useState<SavedReadingEntry[]>(
-    () => loadReadingHistory(),
+  const [dailyReflection, setDailyReflection] = useState<DailyReflection>(
+    createEmptyReflection,
   )
-  const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(null)
-  const [resultShareMessage, setResultShareMessage] = useState<string | null>(null)
-  const [dailyShareMessage, setDailyShareMessage] = useState<string | null>(null)
-  const [archiveShareMessage, setArchiveShareMessage] = useState<string | null>(null)
+  const [dailyMessage, setDailyMessage] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
-  const lastArchivedReadingIdRef = useRef<string | null>(null)
 
-  const selectedTopic = TOPICS.find((entry) => entry.id === topic) ?? null
-  const selectedSpread = SPREADS.find((entry) => entry.id === spreadId) ?? null
-  const dailyCard = dailyReading.cards[0]
-  const dailyInsight = dailyReading.positionReadings[0]
-  const isLocked = isShuffling || reading !== null
+  const selectedTopic = topic ? TOPIC_BY_ID[topic] : null
+  const selectedSpread = spreadId
+    ? SPREADS.find((entry) => entry.id === spreadId) ?? null
+    : null
+  const selectedVariant =
+    selectedSpread?.variants?.find((entry) => entry.id === variantId) ?? null
+  const currentRecord =
+    currentRecordId !== null
+      ? records.find((entry) => entry.id === currentRecordId) ?? null
+      : reading
+        ? records.find((entry) => entry.id === buildReadingRecordId(reading)) ?? null
+        : null
   const canDraw =
     question.trim().length > 0 &&
     topic !== null &&
     spreadId !== null &&
-    !isShuffling &&
-    reading === null
+    !isShuffling
   const allRevealed =
     reading !== null && revealedPositions.length === reading.cards.length
-
-  const filteredHistory = savedReadings.filter((entry) => {
-    const matchesCategory =
-      historyFilter === 'all' || entry.category === historyFilter
-    const normalizedQuery = historyQuery.trim().toLowerCase()
-
-    if (!matchesCategory) {
-      return false
-    }
-
-    if (normalizedQuery.length === 0) {
-      return true
-    }
-
-    return [
-      entry.title,
-      entry.question,
-      entry.summary,
-      entry.tags.join(' '),
-      entry.topicLabel,
-    ]
-      .join(' ')
-      .toLowerCase()
-      .includes(normalizedQuery)
-  })
+  const featuredCardIds = Array.from(
+    new Set([
+      ...(reading?.cards.map((entry) => entry.card.id) ?? []),
+      ...(dailyRevealed ? [dailyReading.cards[0].card.id] : []),
+    ]),
+  )
 
   useEffect(() => {
     return () => {
@@ -183,49 +169,87 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   }, [])
 
   useEffect(() => {
-    storeSavedReadings(savedReadings)
-  }, [savedReadings])
-
-  useEffect(() => {
     storeGuideDismissed(guideDismissed)
   }, [guideDismissed])
 
-  const applyReading = (nextReading: ReadingResult) => {
-    setReading(nextReading)
-    setActionPlanDoneIds([])
-    setFollowUpQuestion('')
-    setFollowUps([])
-    setSaveCategory(nextReading.input.topic)
-    setSaveTitle(createDefaultTitle(nextReading.input.question))
-    setSaveTagsInput(
-      `${TOPIC_BY_ID[nextReading.input.topic].label}, ${nextReading.spread.title}`,
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const active = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
+
+        if (active?.target.id) {
+          setNavSection(active.target.id as (typeof NAV_ITEMS)[number]['id'])
+        }
+      },
+      { rootMargin: '-20% 0px -55% 0px', threshold: [0.2, 0.45, 0.75] },
     )
-    setSaveNotice(null)
-    setResultShareMessage(null)
-    setArchiveShareMessage(null)
-    lastArchivedReadingIdRef.current = null
+
+    NAV_ITEMS.forEach((entry) => {
+      const element = document.getElementById(entry.id)
+
+      if (element) {
+        observer.observe(element)
+      }
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  const persistReadingRecord = (
+    saved: boolean,
+    message: string | null = null,
+    nextActionPlanDoneIds = actionPlanDoneIds,
+    nextFollowUps = followUps,
+  ) => {
+    if (!reading) {
+      return
+    }
+
+    const nextRecord = buildReadingRecordFromReading(reading, {
+      recordId: currentRecord?.id ?? buildReadingRecordId(reading),
+      saved: saved || currentRecord?.saved || false,
+      title: recordTitle.trim() || currentRecord?.title || reading.input.question,
+      tags: parseTags(recordTagsInput),
+      actionPlanDoneIds: nextActionPlanDoneIds,
+      followUps: nextFollowUps,
+    })
+
+    setRecords(saveReadingRecord(nextRecord))
+    setCurrentRecordId(nextRecord.id)
+
+    if (message) {
+      setRecordNotice(message)
+    }
   }
 
-  const persistArchivedReading = (
-    nextReading: ReadingResult,
-    nextRevealedPositions: string[],
-  ) => {
-    if (nextRevealedPositions.length !== nextReading.cards.length) {
-      return
-    }
-
-    const entry = buildSavedReadingEntry(
-      nextReading,
-      TOPIC_BY_ID[nextReading.input.topic].label,
+  const applyReading = (nextReading: ReadingResult) => {
+    setReading(nextReading)
+    setIsShuffling(false)
+    setRevealedPositions([])
+    setActionPlanDoneIds([])
+    setFollowUps([])
+    setFollowUpQuestion('')
+    setCurrentRecordId(null)
+    setRecordTitle(createDefaultTitle(nextReading.input.question))
+    setRecordTagsInput(
+      `${TOPIC_BY_ID[nextReading.input.topic].label} ${nextReading.spread.title}`,
     )
+    setRecordNotice(null)
+    setShareMessage(null)
+    setNavSection('result')
+    window.requestAnimationFrame(() => scrollToSection('result'))
+  }
 
-    if (entry.id === lastArchivedReadingIdRef.current) {
-      return
-    }
-
-    setArchiveEntries(saveReadingHistoryEntry(entry))
-    setExpandedArchiveId(entry.id)
-    lastArchivedReadingIdRef.current = entry.id
+  const handleSelectSpread = (nextSpreadId: string) => {
+    const nextSpread = SPREADS.find((entry) => entry.id === nextSpreadId)
+    setSpreadId(nextSpreadId)
+    setVariantId(nextSpread?.variants?.[0]?.id)
   }
 
   const handleDraw = () => {
@@ -233,206 +257,181 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
       return
     }
 
-    setRevealedPositions([])
-    setResultShareMessage(null)
-    setArchiveShareMessage(null)
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current)
+    }
 
     const nextReading = createReading(
       {
         question: question.trim(),
         topic,
         spreadId,
+        variantId,
       },
-      { seed: `${Date.now()}-${question.trim()}-${topic}-${spreadId}` },
+      {
+        seed: `${Date.now()}-${question.trim()}-${topic}-${spreadId}-${variantId ?? 'base'}`,
+      },
     )
+
+    setReading(null)
+    setRevealedPositions([])
+    setDeckHighlights(nextReading.cards.map((entry) => entry.card.id))
+    setRecordNotice(null)
+    setShareMessage(null)
 
     if (shuffleDelayMs <= 0) {
       applyReading(nextReading)
-      setIsShuffling(false)
       return
     }
 
     setIsShuffling(true)
-    timerRef.current = window.setTimeout(() => {
-      applyReading(nextReading)
-      setIsShuffling(false)
-    }, shuffleDelayMs)
+    timerRef.current = window.setTimeout(() => applyReading(nextReading), shuffleDelayMs)
   }
 
   const handleReveal = (positionKey: string) => {
-    if (reading === null || revealedPositions.includes(positionKey)) {
+    if (!reading || revealedPositions.includes(positionKey)) {
       return
     }
 
     const nextRevealedPositions = [...revealedPositions, positionKey]
-
     setRevealedPositions(nextRevealedPositions)
-    persistArchivedReading(reading, nextRevealedPositions)
+
+    if (nextRevealedPositions.length === reading.cards.length) {
+      persistReadingRecord(false, '本次解读已自动归档。')
+    }
   }
 
   const handleRevealAll = () => {
-    if (reading === null) {
+    if (!reading) {
       return
     }
 
-    const nextRevealedPositions = reading.cards.map(
-      (entry) => entry.drawn.positionKey,
-    )
-
-    setRevealedPositions(nextRevealedPositions)
-    persistArchivedReading(reading, nextRevealedPositions)
-  }
-
-  const handleReset = () => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-
-    setQuestion('')
-    setTopic(null)
-    setSpreadId(null)
-    setReading(null)
-    setIsShuffling(false)
-    setRevealedPositions([])
-    setActionPlanDoneIds([])
-    setFollowUpQuestion('')
-    setFollowUps([])
-    setSaveTitle('')
-    setSaveCategory('general')
-    setSaveTagsInput('')
-    setSaveNotice(null)
-    setResultShareMessage(null)
+    setRevealedPositions(reading.cards.map((entry) => entry.drawn.positionKey))
+    persistReadingRecord(false, '本次解读已自动归档。')
   }
 
   const handleToggleActionPlan = (stepId: string) => {
-    setActionPlanDoneIds((current) =>
-      current.includes(stepId)
-        ? current.filter((entry) => entry !== stepId)
-        : [...current, stepId],
-    )
+    const nextActionPlanDoneIds = actionPlanDoneIds.includes(stepId)
+      ? actionPlanDoneIds.filter((id) => id !== stepId)
+      : [...actionPlanDoneIds, stepId]
+
+    setActionPlanDoneIds(nextActionPlanDoneIds)
+
+    if (reading && allRevealed) {
+      persistReadingRecord(false, null, nextActionPlanDoneIds)
+    }
   }
 
   const handleFollowUp = () => {
-    if (reading === null || !allRevealed) {
+    if (!reading || followUpQuestion.trim().length === 0) {
       return
     }
 
-    const nextQuestion = followUpQuestion.trim()
+    const nextFollowUps = [
+      createFollowUpRecord(followUpQuestion.trim(), reading),
+      ...followUps,
+    ].slice(0, 6)
 
-    if (nextQuestion.length === 0) {
-      return
-    }
-
-    const followUpReading = createReading(
-      {
-        question: nextQuestion,
-        topic: reading.input.topic,
-        spreadId: reading.input.spreadId,
-      },
-      { seed: `${Date.now()}-${nextQuestion}-${followUps.length}` },
-    )
-
-    setFollowUps((current) => [
-      ...current,
-      createFollowUpRecord(nextQuestion, followUpReading),
-    ])
+    setFollowUps(nextFollowUps)
     setFollowUpQuestion('')
+    setRecordNotice('已记录新的追问线索。')
+
+    if (allRevealed) {
+      persistReadingRecord(false, null, actionPlanDoneIds, nextFollowUps)
+    }
   }
 
   const handleSaveReading = () => {
-    if (reading === null || !allRevealed) {
+    if (!reading) {
       return
     }
 
-    const normalizedTitle = saveTitle.trim() || createDefaultTitle(reading.input.question)
-    const normalizedTags = parseTags(saveTagsInput)
-
-    const record: SavedReadingRecord = {
-      id: createId(),
-      title: normalizedTitle,
-      category: saveCategory,
-      tags: normalizedTags,
-      createdAt: new Date().toISOString(),
-      question: reading.input.question,
-      spreadTitle: reading.spread.title,
-      topicLabel: TOPIC_BY_ID[saveCategory].label,
-      tone: reading.tone,
-      summary: reading.summary,
-      dominantSignals: reading.dominantSignals,
-      cards: reading.cards.map((entry) => ({
-        positionLabel: entry.positionLabel,
-        cardName: entry.card.nameZh,
-        orientation: entry.drawn.orientation,
-      })),
-      actionPlan: reading.actionPlan.map((step) => ({
-        ...step,
-        done: actionPlanDoneIds.includes(step.id),
-      })),
-      followUps,
-    }
-
-    setSavedReadings((current) => [record, ...current])
-    setSaveTitle(normalizedTitle)
-    setSaveTagsInput(normalizedTags.join('、'))
-    setSaveNotice('已保存到历史占卜，可以按分类和标签回看。')
+    persistReadingRecord(true, '已加入收藏。')
   }
 
   const handleShareReading = async () => {
-    if (reading === null || !allRevealed) {
+    if (!reading) {
       return
     }
 
     try {
       const message = await shareText(
-        '浮世占｜占卜结果',
+        '浮世塔罗',
         buildReadingShareText(reading, TOPIC_BY_ID[reading.input.topic].label),
       )
-      setResultShareMessage(message)
+      setShareMessage(message)
     } catch (error) {
-      setResultShareMessage(
-        error instanceof Error ? error.message : '分享失败，请稍后再试。',
-      )
+      setShareMessage(error instanceof Error ? error.message : '分享失败。')
     }
+  }
+
+  const handleDownloadReadingPoster = async () => {
+    if (!reading) {
+      return
+    }
+
+    try {
+      const title = recordTitle.trim() || reading.input.question
+      const message = await downloadPosterPng(
+        {
+          title,
+          question: reading.input.question,
+          spreadTitle: `${reading.spread.title}${
+            reading.spread.activeVariantTitle ? ` · ${reading.spread.activeVariantTitle}` : ''
+          }`,
+          summary: reading.summary,
+          cards: reading.cards.map((entry) => ({
+            label: entry.positionLabel,
+            cardName: entry.card.nameZh,
+            orientation: entry.drawn.orientation,
+          })),
+        },
+        `${title.replaceAll(/\s+/g, '-')}.png`,
+      )
+      setShareMessage(message)
+    } catch (error) {
+      setShareMessage(error instanceof Error ? error.message : '海报导出失败。')
+    }
+  }
+
+  const handleSaveDaily = () => {
+    const nextRecord = buildDailyRecord(dailyReading, dailyDate, dailyReflection)
+    setRecords(saveReadingRecord(nextRecord))
+    setDailyMessage('今日记录已写入记录中心。')
   }
 
   const handleShareDaily = async () => {
-    if (!dailyRevealed) {
-      return
-    }
-
     try {
       const message = await shareText(
-        '浮世占｜每日一张牌',
+        '浮世塔罗 · 每日一张',
         buildReadingShareText(dailyReading, TOPIC_BY_ID.general.label),
       )
-      setDailyShareMessage(message)
+      setDailyMessage(message)
     } catch (error) {
-      setDailyShareMessage(
-        error instanceof Error ? error.message : '分享失败，请稍后再试。',
-      )
+      setDailyMessage(error instanceof Error ? error.message : '分享失败。')
     }
   }
 
-  const handleShareArchive = async (entry: SavedReadingEntry) => {
+  const handleDownloadDailyPoster = async () => {
     try {
-      const message = await shareText(
-        '浮世占｜自动归档',
-        buildSavedReadingShareText(entry),
+      const message = await downloadPosterPng(
+        {
+          title: `每日一张 · ${dailyLabel}`,
+          question: dailyReading.input.question,
+          spreadTitle: dailyReading.spread.title,
+          summary: dailyReading.summary,
+          cards: dailyReading.cards.map((entry) => ({
+            label: entry.positionLabel,
+            cardName: entry.card.nameZh,
+            orientation: entry.drawn.orientation,
+          })),
+        },
+        `daily-${dailyDate.toISOString().slice(0, 10)}.png`,
       )
-      setArchiveShareMessage(message)
+      setDailyMessage(message)
     } catch (error) {
-      setArchiveShareMessage(
-        error instanceof Error ? error.message : '分享失败，请稍后再试。',
-      )
+      setDailyMessage(error instanceof Error ? error.message : '海报导出失败。')
     }
-  }
-
-  const handleClearArchive = () => {
-    clearReadingHistory()
-    setArchiveEntries([])
-    setExpandedArchiveId(null)
-    setArchiveShareMessage('自动归档已清空。')
   }
 
   return (
@@ -442,148 +441,196 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
 
       <header className="hero panel">
         <div className="hero__seal">
-          <span className="hero__seal-mark">浮世塔罗</span>
-          <span className="hero__seal-sub">Tarot Reading</span>
+          <span className="hero__seal-mark">浮世</span>
+          <span className="hero__seal-sub">UKIYO TAROT</span>
         </div>
-
         <div className="hero__copy">
-          <p className="eyebrow">Ukiyo Tarot Salon</p>
-          <h1>纸上星轨，问心抽牌</h1>
+          <p className="eyebrow">Tarot Salon</p>
+          <h1>把抽到的 78 张牌，真正铺上桌面。</h1>
           <p className="hero__lede">
-            以浮世绘风格展开一场中文塔罗体验。除了完成占卜，你还可以继续追问、查看牌卡百科、
-            生成行动计划、做每日一张牌，并把结果分享或自动归档。
+            浮世塔罗把每日一张、深度牌阵、记录归档、追问与分享海报接成一条完整的解读动线。
           </p>
-
           <div className="hero__meta">
-            <span>完整 78 张牌</span>
-            <span>支持正位 / 逆位</span>
-            <span>单张到五张牌阵</span>
-            <span>占后行动计划</span>
-            <span>每日一张与快速分享</span>
+            <span>78 张独立牌面</span>
+            <span>11 套牌阵</span>
+            <span>本地记录中心</span>
+            <span>PNG 海报导出</span>
           </div>
         </div>
       </header>
 
-      <main className="layout">
-        <GuidePanel
-          dismissed={guideDismissed}
-          onDismiss={() => setGuideDismissed(true)}
-          onRestore={() => setGuideDismissed(false)}
-        />
+      <div className="layout">
+        <nav className="panel section step-nav" aria-label="页面导航">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              aria-label={`跳转到${item.label}`}
+              className={`pill ${navSection === item.id ? 'is-active' : ''}`}
+              type="button"
+              onClick={() => {
+                setNavSection(item.id)
+                scrollToSection(item.id)
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        <section className="panel section daily-panel">
+        <section className="panel section daily-panel" id="daily">
           <div className="section__heading">
             <div>
               <p className="eyebrow">Daily Card</p>
-              <h2>每日一张牌</h2>
+              <h2>每日一张与复盘</h2>
             </div>
             <span className="section__count">{dailyLabel}</span>
           </div>
 
           <div className="daily-layout">
             <div className="daily-copy">
-              <p className="selection-note">
-                不写问题也可以先抽今天的一张牌，快速校准当天的情绪、节奏与行动重点。
+              <p className="section__lede">
+                先看今天最值得留意的能量，再补上晨间意图与晚间复盘，把一次抽牌变成可回看的记录。
               </p>
-
-              <div className="signal-strip">
-                <span>{dailyReading.spread.title}</span>
-                <span>{dailyReading.tone}</span>
-                <span>完整中文解读</span>
-              </div>
-
-              {dailyRevealed ? (
-                <>
-                  <div className="daily-copy__block">
-                    <h3>今日提示</h3>
-                    <p>{dailyInsight.message}</p>
-                  </div>
-
-                  <div className="daily-copy__block">
-                    <h3>今日建议</h3>
-                    <ul className="advice-list">
-                      {dailyReading.advice.map((entry) => (
-                        <li key={entry}>{entry}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              ) : (
-                <p className="selection-note">
-                  先翻开牌面，再看今天的解读、关键词和行动建议。
-                </p>
-              )}
 
               <div className="draw-summary__actions">
                 <button
                   className="primary-button"
-                  disabled={dailyRevealed}
                   type="button"
                   onClick={() => setDailyRevealed(true)}
                 >
-                  {dailyRevealed ? '今日牌面已揭晓' : '揭晓今日能量'}
+                  揭晓今日能量
+                </button>
+                <button className="ghost-button" type="button" onClick={handleShareDaily}>
+                  分享今日卡面
                 </button>
                 <button
                   className="ghost-button"
-                  disabled={!dailyRevealed}
                   type="button"
-                  onClick={() => void handleShareDaily()}
+                  onClick={handleDownloadDailyPoster}
                 >
-                  分享今日抽牌
+                  下载今日海报
                 </button>
               </div>
 
-              {dailyShareMessage ? (
-                <p className="selection-note">{dailyShareMessage}</p>
-              ) : null}
+              <label className="inline-input">
+                <span>晨间意图</span>
+                <input
+                  aria-label="晨间意图"
+                  placeholder="今天想稳住什么，或想练习什么？"
+                  type="text"
+                  value={dailyReflection.morningIntent}
+                  onChange={(event) =>
+                    setDailyReflection((current) => ({
+                      ...current,
+                      morningIntent: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="inline-input">
+                <span>晚间复盘</span>
+                <textarea
+                  aria-label="晚间复盘"
+                  placeholder="晚上回看时，这张牌和你的现实有没有对上？"
+                  value={dailyReflection.eveningReview}
+                  onChange={(event) =>
+                    setDailyReflection((current) => ({
+                      ...current,
+                      eveningReview: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <div className="utility-toggle utility-toggle--wrap">
+                <button
+                  className={`pill ${
+                    dailyReflection.resonance === 'strong' ? 'is-active' : ''
+                  }`}
+                  type="button"
+                  onClick={() =>
+                    setDailyReflection((current) => ({ ...current, resonance: 'strong' }))
+                  }
+                >
+                  强共鸣
+                </button>
+                <button
+                  className={`pill ${
+                    dailyReflection.resonance === 'mixed' ? 'is-active' : ''
+                  }`}
+                  type="button"
+                  onClick={() =>
+                    setDailyReflection((current) => ({ ...current, resonance: 'mixed' }))
+                  }
+                >
+                  一般
+                </button>
+                <button
+                  className={`pill ${
+                    dailyReflection.resonance === 'low' ? 'is-active' : ''
+                  }`}
+                  type="button"
+                  onClick={() =>
+                    setDailyReflection((current) => ({ ...current, resonance: 'low' }))
+                  }
+                >
+                  不共鸣
+                </button>
+              </div>
+
+              <div className="draw-summary__actions">
+                <button className="primary-button" type="button" onClick={handleSaveDaily}>
+                  保存今日记录
+                </button>
+                {dailyMessage ? <p className="selection-note">{dailyMessage}</p> : null}
+              </div>
             </div>
 
             <div className="daily-card-slot">
               <TarotCardButton
-                entry={dailyCard}
-                revealed={dailyRevealed}
+                entry={dailyReading.cards[0]}
                 onReveal={() => setDailyRevealed(true)}
+                revealed={dailyRevealed}
               />
             </div>
           </div>
         </section>
 
-        <section className="panel section">
+        <GuidePanel
+          dismissed={guideDismissed}
+          onDismiss={() => setGuideDismissed(true)}
+          onRestore={() => setGuideDismissed(false)}
+        />
+
+        <section className="panel section" id="reading">
           <div className="section__heading">
             <div>
-              <p className="eyebrow">Step 01</p>
-              <h2>写下你的占卜问题</h2>
+              <p className="eyebrow">Reading Studio</p>
+              <h2>问题、主题与牌阵</h2>
             </div>
-            <span className="section__count">{question.trim().length} 字</span>
+            <span className="section__count">
+              {selectedSpread ? `${selectedSpread.cardCount} 张牌` : '先选好问题'}
+            </span>
           </div>
 
           <label className="question-field">
             <span>占卜问题</span>
             <textarea
               aria-label="占卜问题"
-              disabled={isLocked}
-              maxLength={120}
-              placeholder="例如：我接下来三个月是否适合转换职业方向？"
-              rows={4}
+              placeholder="把问题写得更具体，例如：我接下来该怎样处理这段关系？"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
             />
           </label>
 
-          <div className="topic-selector">
-            <div className="section__heading section__heading--compact">
-              <div>
-                <p className="eyebrow">Step 02</p>
-                <h2>选择问题主题</h2>
-              </div>
-            </div>
-
+          <div className="topic-selector utility-row">
             <div className="pill-grid">
               {TOPICS.map((entry) => (
                 <button
                   key={entry.id}
-                  className={`pill ${entry.id === topic ? 'is-active' : ''}`}
-                  disabled={isLocked}
+                  aria-label={entry.label}
+                  className={`pill ${topic === entry.id ? 'is-active' : ''}`}
                   type="button"
                   onClick={() => setTopic(entry.id)}
                 >
@@ -592,639 +639,283 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                 </button>
               ))}
             </div>
-
-            <p className="selection-note">
-              {selectedTopic?.description ?? '主题会影响解读语气、重点和行动建议的方向。'}
-            </p>
-          </div>
-        </section>
-
-        <section className="panel section">
-          <div className="section__heading">
-            <div>
-              <p className="eyebrow">Step 03</p>
-              <h2>挑选你的牌阵</h2>
-            </div>
+            {selectedTopic ? <p className="selection-note">{selectedTopic.framing}</p> : null}
           </div>
 
           <div className="spread-grid">
-            {SPREADS.map((spread) => (
-              <button
-                key={spread.id}
-                className={`spread-card ${spread.id === spreadId ? 'is-active' : ''}`}
-                disabled={isLocked}
-                type="button"
-                onClick={() => setSpreadId(spread.id)}
-              >
-                <div className="spread-card__topline">
-                  <span>{spread.cardCount} 张牌</span>
-                  <span>{spread.positions.map((item) => item.label).join(' / ')}</span>
+            {SPREADS.map((spread) => {
+              const previewPositions = getSpreadPreviewPositions(
+                spread.layoutId,
+                spread.id === selectedSpread?.id && selectedVariant
+                  ? selectedVariant.positions
+                  : spread.variants?.[0]?.positions ?? spread.positions,
+              )
+
+              return (
+                <button
+                  key={spread.id}
+                  aria-label={spread.id === 'daily-energy' ? '每日一张牌阵' : spread.title}
+                  className={`spread-card ${spreadId === spread.id ? 'is-active' : ''}`}
+                  type="button"
+                  onClick={() => handleSelectSpread(spread.id)}
+                >
+                  <div className="spread-card__topline">
+                    <span>{spread.cardCount} 张</span>
+                    <span>{spread.layoutId}</span>
+                  </div>
+                  <h3>{spread.title}</h3>
+                  <p>{spread.description}</p>
+                  <div className={`spread-preview spread-preview--${spread.layoutId}`}>
+                    {previewPositions.map((position) => (
+                      <span
+                        key={`${spread.id}-${position.key}`}
+                        className="spread-preview__dot"
+                        style={
+                          {
+                            '--preview-x': `${position.x}%`,
+                            '--preview-y': `${position.y}%`,
+                          } as CSSProperties
+                        }
+                      />
+                    ))}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {selectedSpread?.variants ? (
+            <div className="utility-row utility-row--stack">
+              <div className="section__heading section__heading--compact">
+                <div>
+                  <p className="eyebrow">Spread Mode</p>
+                  <h2>{selectedSpread.title}模式</h2>
                 </div>
-                <h3>{spread.title}</h3>
-                <p>{spread.description}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className={`panel section panel-draw ${isShuffling ? 'is-shuffling' : ''}`}>
-          <div className="section__heading">
-            <div>
-              <p className="eyebrow">Step 04</p>
-              <h2>洗牌与抽牌</h2>
+              </div>
+              <div className="utility-toggle utility-toggle--wrap">
+                {selectedSpread.variants.map((entry) => (
+                  <button
+                    key={entry.id}
+                    className={`pill ${variantId === entry.id ? 'is-active' : ''}`}
+                    type="button"
+                    onClick={() => setVariantId(entry.id)}
+                  >
+                    {entry.title}
+                  </button>
+                ))}
+              </div>
+              {selectedVariant ? (
+                <p className="selection-note">{selectedVariant.description}</p>
+              ) : null}
             </div>
-            {selectedSpread !== null ? (
-              <span className="section__count">{selectedSpread.title}</span>
-            ) : null}
-          </div>
+          ) : null}
 
-          <div className="draw-layout">
-            <div className="deck-fan" aria-hidden="true">
-              <span className="deck-fan__card deck-fan__card--one" />
-              <span className="deck-fan__card deck-fan__card--two" />
-              <span className="deck-fan__card deck-fan__card--three" />
-            </div>
-
-            <div className="draw-summary">
-              <div className="draw-summary__row">
-                <span>问题</span>
-                <p>{question.trim() || '尚未写下问题'}</p>
-              </div>
-              <div className="draw-summary__row">
-                <span>主题</span>
-                <p>{selectedTopic?.label ?? '尚未选择'}</p>
-              </div>
-              <div className="draw-summary__row">
-                <span>牌阵</span>
-                <p>{selectedSpread?.title ?? '尚未选择'}</p>
-              </div>
-
-              <div className="draw-summary__actions">
-                <button
-                  className="primary-button"
-                  disabled={!canDraw}
-                  type="button"
-                  onClick={handleDraw}
-                >
-                  {isShuffling ? '牌阵正在洗牌中…' : '洗牌并抽牌'}
-                </button>
-
-                <button
-                  className="ghost-button"
-                  disabled={isShuffling}
-                  type="button"
-                  onClick={handleReset}
-                >
-                  重新占卜
-                </button>
-              </div>
-
-              <p className="selection-note">
-                只有在问题、主题、牌阵都完整时，牌阵才会给出更具体的回应。
+          <div className="draw-summary">
+            <div className="draw-summary__row">
+              <span>当前组合</span>
+              <p>
+                {selectedTopic?.label ?? '未选主题'} · {selectedSpread?.title ?? '未选牌阵'}
+                {selectedVariant ? ` · ${selectedVariant.title}` : ''}
               </p>
             </div>
-          </div>
-        </section>
-
-        {reading !== null ? (
-          <section className="panel section">
-            <div className="section__heading">
-              <div>
-                <p className="eyebrow">Step 05</p>
-                <h2>翻开牌面</h2>
-              </div>
-              <span className="section__count">
-                {revealedPositions.length} / {reading.cards.length}
-              </span>
-            </div>
-
-            <div className="card-grid">
-              {reading.cards.map((entry) => (
-                <TarotCardButton
-                  key={entry.drawn.positionKey}
-                  entry={entry}
-                  revealed={revealedPositions.includes(entry.drawn.positionKey)}
-                  onReveal={() => handleReveal(entry.drawn.positionKey)}
-                />
-              ))}
-            </div>
-
-            <div className="result-actions">
+            <div className="draw-summary__actions">
               <button
                 className="primary-button"
-                disabled={allRevealed}
+                disabled={!canDraw}
                 type="button"
-                onClick={handleRevealAll}
+                onClick={handleDraw}
               >
-                全部揭晓
-              </button>
-              <button className="ghost-button" type="button" onClick={handleReset}>
-                开启新一轮占卜
-              </button>
-              <button
-                className="ghost-button"
-                disabled={!allRevealed}
-                type="button"
-                onClick={() => void handleShareReading()}
-              >
-                分享这次结果
+                洗牌并抽牌
               </button>
             </div>
+          </div>
+        </section>
 
-            {!allRevealed ? (
-              <p className="selection-note">
-                点击每张牌翻面，完整解读会在全部揭晓后呈现。
-              </p>
-            ) : (
+        <DeckStage highlightedCardIds={deckHighlights} isShuffling={isShuffling} />
+
+        <section className="panel section" id="result">
+          <div className="section__heading">
+            <div>
+              <p className="eyebrow">Result</p>
+              <h2>{reading ? '结果解读' : '等待抽牌'}</h2>
+            </div>
+            {reading ? <span className="section__count">{reading.tone}</span> : null}
+          </div>
+
+          {reading ? (
+            <>
+              <p className="question-echo">{reading.input.question}</p>
+              <div className="signal-strip">
+                <span>{TOPIC_BY_ID[reading.input.topic].label}</span>
+                <span>{reading.spread.title}</span>
+                {reading.spread.activeVariantTitle ? (
+                  <span>{reading.spread.activeVariantTitle}</span>
+                ) : null}
+                {reading.dominantSignals.map((signal) => (
+                  <span key={signal}>{signal}</span>
+                ))}
+              </div>
+
+              <div className="result-actions">
+                <button className="primary-button" type="button" onClick={handleRevealAll}>
+                  全部揭晓
+                </button>
+                <button className="ghost-button" type="button" onClick={handleShareReading}>
+                  分享文案
+                </button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={handleDownloadReadingPoster}
+                >
+                  下载海报
+                </button>
+              </div>
+
+              <SpreadLayoutBoard
+                cards={reading.cards}
+                onReveal={handleReveal}
+                revealedPositions={revealedPositions}
+                spread={reading.spread}
+              />
+
               <div className="result-grid">
                 <article className="result-panel">
-                  <p className="eyebrow">Section 01</p>
-                  <h3>占卜之问</h3>
-                  <p className="question-echo">“{reading.input.question}”</p>
-                  <div className="signal-strip">
-                    <span>{TOPIC_BY_ID[reading.input.topic].label}</span>
-                    <span>{reading.spread.title}</span>
-                    <span>{reading.tone}</span>
-                  </div>
+                  <p className="eyebrow">Summary</p>
+                  <h3>整体结论</h3>
+                  <p>{reading.summary}</p>
                 </article>
 
                 <article className="result-panel">
-                  <p className="eyebrow">Section 02</p>
-                  <h3>牌阵揭晓</h3>
-                  <ul className="result-list">
-                    {reading.cards.map((entry) => (
-                      <li key={entry.drawn.positionKey}>
-                        <strong>{entry.positionLabel}</strong>
-                        <span>
-                          {entry.card.nameZh} ·{' '}
-                          {entry.drawn.orientation === 'up' ? '正位' : '逆位'}
-                        </span>
-                      </li>
+                  <p className="eyebrow">Advice</p>
+                  <h3>行动建议</h3>
+                  <ul className="advice-list">
+                    {reading.advice.map((item) => (
+                      <li key={item}>{item}</li>
                     ))}
                   </ul>
                 </article>
 
                 <article className="result-panel result-panel--wide">
-                  <p className="eyebrow">Section 03</p>
-                  <h3>逐张解读</h3>
-                  <div className="reading-entries">
-                    {reading.positionReadings.map((entry) => (
-                      <article key={entry.positionKey} className="reading-entry">
-                        <div className="reading-entry__title">
-                          <strong>{entry.label}</strong>
-                          <span>{entry.cardName}</span>
-                        </div>
-                        <p>{entry.message}</p>
-                        <div className="signal-strip">
-                          {entry.keywords.map((keyword) => (
-                            <span key={keyword}>{keyword}</span>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
+                  <p className="eyebrow">Action Plan</p>
+                  <h3>落地动作</h3>
+                  <div className="action-plan-list">
+                    {reading.actionPlan.map((step) => {
+                      const checked = actionPlanDoneIds.includes(step.id)
+
+                      return (
+                        <label
+                          key={step.id}
+                          className={`check-card ${checked ? 'is-done' : ''}`}
+                        >
+                          <input
+                            checked={checked}
+                            type="checkbox"
+                            onChange={() => handleToggleActionPlan(step.id)}
+                          />
+                          <div>
+                            <strong>{step.title}</strong>
+                            <p>{step.detail}</p>
+                          </div>
+                        </label>
+                      )
+                    })}
                   </div>
                 </article>
 
-                <article className="result-panel">
-                  <p className="eyebrow">Section 04</p>
-                  <h3>综合结论</h3>
-                  <p>{reading.summary}</p>
-                  <div className="signal-strip">
-                    {reading.dominantSignals.map((signal) => (
-                      <span key={signal}>{signal}</span>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="result-panel">
-                  <p className="eyebrow">Section 05</p>
-                  <h3>行动建议</h3>
-                  <ul className="advice-list">
-                    {reading.advice.map((entry) => (
-                      <li key={entry}>{entry}</li>
-                    ))}
-                  </ul>
-                </article>
-              </div>
-            )}
-
-            {allRevealed && resultShareMessage ? (
-              <p className="selection-note">{resultShareMessage}</p>
-            ) : null}
-          </section>
-        ) : null}
-
-        {reading !== null && allRevealed ? (
-          <>
-            <section className="panel section">
-              <div className="section__heading">
-                <div>
-                  <p className="eyebrow">Step 06</p>
-                  <h2>占卜后行动计划</h2>
-                </div>
-                <span className="section__count">
-                  {actionPlanDoneIds.length} / {reading.actionPlan.length}
-                </span>
-              </div>
-
-              <p className="selection-note">
-                把解读落成 3 个可执行步骤。你可以边做边勾选，确认自己是否真的往前走了。
-              </p>
-
-              <div className="action-plan-list">
-                {reading.actionPlan.map((step, index) => {
-                  const isDone = actionPlanDoneIds.includes(step.id)
-
-                  return (
-                    <label
-                      key={step.id}
-                      className={`check-card ${isDone ? 'is-done' : ''}`}
-                    >
-                      <input
-                        checked={isDone}
-                        type="checkbox"
-                        onChange={() => handleToggleActionPlan(step.id)}
-                      />
-                      <div>
-                        <span className="eyebrow">Step 0{index + 1}</span>
-                        <strong>{step.title}</strong>
-                        <p>{step.detail}</p>
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-            </section>
-
-            <section className="panel section">
-              <div className="section__heading">
-                <div>
-                  <p className="eyebrow">Step 07</p>
-                  <h2>追问模式</h2>
-                </div>
-                <span className="section__count">{followUps.length} 条追问</span>
-              </div>
-
-              <div className="follow-up-layout">
-                <article className="result-panel">
-                  <h3>基于上一轮继续追问</h3>
-                  <p>
-                    追问会继承这次占卜的主题和牌阵，让你围绕“如果我选择 A 会怎样”
-                    这类问题继续往下探索。
-                  </p>
-
+                <article className="result-panel result-panel--wide">
+                  <p className="eyebrow">Follow Up</p>
+                  <h3>追问延伸</h3>
                   <div className="suggestion-row">
-                    {FOLLOW_UP_SUGGESTIONS.map((entry) => (
+                    {FOLLOW_UP_SUGGESTIONS.map((item) => (
                       <button
-                        key={entry}
+                        key={item}
                         className="pill"
                         type="button"
-                        onClick={() => setFollowUpQuestion(entry)}
+                        onClick={() => setFollowUpQuestion(item)}
                       >
-                        <span>{entry}</span>
-                        <small>一键填入</small>
+                        {item}
                       </button>
                     ))}
                   </div>
-
                   <label className="question-field question-field--compact">
-                    <span>你的追问</span>
+                    <span>继续追问</span>
                     <textarea
-                      aria-label="追问问题"
-                      placeholder="例如：如果我先保持距离，这段关系会发生什么变化？"
-                      rows={3}
+                      placeholder="围绕当前牌面继续追问，例如：我最该先处理哪一个卡点？"
                       value={followUpQuestion}
                       onChange={(event) => setFollowUpQuestion(event.target.value)}
                     />
                   </label>
-
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={handleFollowUp}
-                  >
-                    生成追问解读
-                  </button>
-                </article>
-
-                <div className="follow-up-thread">
+                  <div className="result-actions">
+                    <button className="ghost-button" type="button" onClick={handleFollowUp}>
+                      记录追问
+                    </button>
+                  </div>
                   {followUps.length > 0 ? (
-                    followUps.map((entry, index) => (
-                      <article key={entry.id} className="follow-up-card">
-                        <div className="reading-entry__title">
-                          <strong>追问 {index + 1}</strong>
-                          <span>{formatTimestamp(entry.createdAt)}</span>
-                        </div>
-                        <p className="question-echo">“{entry.question}”</p>
-                        <p>{entry.summary}</p>
-                        <div className="signal-strip">
-                          <span>{entry.tone}</span>
-                          {entry.dominantSignals.map((signal) => (
-                            <span key={`${entry.id}-${signal}`}>{signal}</span>
-                          ))}
-                        </div>
-                        <p className="selection-note">行动提示：{entry.leadAdvice}</p>
-                      </article>
-                    ))
-                  ) : (
-                    <article className="result-panel">
-                      <h3>连续解读会出现在这里</h3>
-                      <p>第一次追问后，这里会形成一个轻量的对话式记录，帮助你继续比较不同选择。</p>
-                    </article>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            <section className="panel section">
-              <div className="section__heading">
-                <div>
-                  <p className="eyebrow">Step 08</p>
-                  <h2>结果保存命名 / 分类</h2>
-                </div>
-                <span className="section__count">{savedReadings.length} 条历史</span>
-              </div>
-
-              <div className="save-history-layout">
-                <article className="result-panel">
-                  <h3>保存这次占卜</h3>
-
-                  <label className="inline-input">
-                    <span>标题</span>
-                    <input
-                      aria-label="保存标题"
-                      placeholder="例如：三月职业转向判断"
-                      type="text"
-                      value={saveTitle}
-                      onChange={(event) => setSaveTitle(event.target.value)}
-                    />
-                  </label>
-
-                  <label className="inline-input">
-                    <span>分类</span>
-                    <select
-                      aria-label="保存分类"
-                      value={saveCategory}
-                      onChange={(event) => setSaveCategory(event.target.value as TopicId)}
-                    >
-                      {TOPICS.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="inline-input">
-                    <span>标签</span>
-                    <input
-                      aria-label="保存标签"
-                      placeholder="例如：转职, 决策, 四月"
-                      type="text"
-                      value={saveTagsInput}
-                      onChange={(event) => setSaveTagsInput(event.target.value)}
-                    />
-                  </label>
-
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={handleSaveReading}
-                  >
-                    保存到历史
-                  </button>
-
-                  {saveNotice ? <p className="selection-note">{saveNotice}</p> : null}
-                </article>
-
-                <article className="result-panel">
-                  <h3>历史记录</h3>
-
-                  <div className="utility-row utility-row--stack">
-                    <div className="utility-toggle utility-toggle--wrap">
-                      <button
-                        className={`pill ${historyFilter === 'all' ? 'is-active' : ''}`}
-                        type="button"
-                        onClick={() => setHistoryFilter('all')}
-                      >
-                        <span>全部</span>
-                        <small>查看所有记录</small>
-                      </button>
-                      {TOPICS.map((entry) => (
-                        <button
-                          key={entry.id}
-                          className={`pill ${historyFilter === entry.id ? 'is-active' : ''}`}
-                          type="button"
-                          onClick={() => setHistoryFilter(entry.id)}
-                        >
-                          <span>{entry.label}</span>
-                          <small>{entry.motto}</small>
-                        </button>
+                    <div className="follow-up-thread">
+                      {followUps.map((entry) => (
+                        <article key={entry.id} className="follow-up-card">
+                          <strong>{entry.question}</strong>
+                          <p>{entry.summary}</p>
+                        </article>
                       ))}
                     </div>
+                  ) : null}
+                </article>
 
+                <article className="result-panel result-panel--wide">
+                  <p className="eyebrow">Record</p>
+                  <h3>保存到记录中心</h3>
+                  <div className="save-history-layout">
                     <label className="inline-input">
-                      <span>搜索历史</span>
+                      <span>记录标题</span>
                       <input
-                        aria-label="搜索历史"
-                        placeholder="标题、问题、标签"
+                        aria-label="记录标题"
                         type="text"
-                        value={historyQuery}
-                        onChange={(event) => setHistoryQuery(event.target.value)}
+                        value={recordTitle}
+                        onChange={(event) => setRecordTitle(event.target.value)}
+                      />
+                    </label>
+                    <label className="inline-input">
+                      <span>记录标签</span>
+                      <input
+                        aria-label="记录标签"
+                        placeholder="关系 决策 长期"
+                        type="text"
+                        value={recordTagsInput}
+                        onChange={(event) => setRecordTagsInput(event.target.value)}
                       />
                     </label>
                   </div>
-
-                  <div className="history-list">
-                    {filteredHistory.length > 0 ? (
-                      filteredHistory.map((entry) => (
-                        <details key={entry.id} className="history-card">
-                          <summary>
-                            <div>
-                              <strong>{entry.title}</strong>
-                              <small>
-                                {entry.topicLabel} · {entry.spreadTitle} ·{' '}
-                                {formatTimestamp(entry.createdAt)}
-                              </small>
-                            </div>
-                            <span>{entry.tags.length} 个标签</span>
-                          </summary>
-
-                          <p className="question-echo">“{entry.question}”</p>
-                          <p>{entry.summary}</p>
-
-                          <div className="signal-strip">
-                            <span>{entry.tone}</span>
-                            {entry.tags.map((tag) => (
-                              <span key={`${entry.id}-${tag}`}>#{tag}</span>
-                            ))}
-                          </div>
-
-                          <div className="history-meta">
-                            <div>
-                              <h4>行动计划</h4>
-                              <ul className="advice-list">
-                                {entry.actionPlan.map((step) => (
-                                  <li key={step.id}>
-                                    {step.done ? '已完成' : '待完成'} · {step.title}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            <div>
-                              <h4>追问记录</h4>
-                              {entry.followUps.length > 0 ? (
-                                <ul className="advice-list">
-                                  {entry.followUps.map((followUp) => (
-                                    <li key={followUp.id}>{followUp.question}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="selection-note">这次没有继续追问。</p>
-                              )}
-                            </div>
-                          </div>
-                        </details>
-                      ))
-                    ) : (
-                      <p className="selection-note">
-                        还没有匹配的历史记录。保存这次占卜后，就可以按分类和标签回看了。
-                      </p>
-                    )}
+                  <div className="result-actions">
+                    <button className="primary-button" type="button" onClick={handleSaveReading}>
+                      加入收藏
+                    </button>
+                    {recordNotice ? <p className="selection-note">{recordNotice}</p> : null}
+                    {shareMessage ? <p className="selection-note">{shareMessage}</p> : null}
                   </div>
                 </article>
               </div>
-            </section>
-
-            <CardEncyclopedia featuredCardIds={reading.cards.map((entry) => entry.card.id)} />
-          </>
-        ) : null}
-
-        <section className="panel section">
-          <div className="section__heading">
-            <div>
-              <p className="eyebrow">Archive</p>
-              <h2>本地自动归档</h2>
-            </div>
-            <span className="section__count">{archiveEntries.length} 条</span>
-          </div>
-
-          <div className="archive-toolbar">
-            <p className="selection-note">
-              每次完整揭晓后的结果都会自动保存在本地浏览器，方便回看与快速分享。
-            </p>
-
-            {archiveEntries.length > 0 ? (
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={handleClearArchive}
-              >
-                清空自动归档
-              </button>
-            ) : null}
-          </div>
-
-          {archiveEntries.length === 0 ? (
-            <p className="selection-note">
-              还没有自动归档。完成一次完整占卜后，这里会自动出现回看卡片。
-            </p>
+            </>
           ) : (
-            <div className="archive-list">
-              {archiveEntries.map((entry) => {
-                const isExpanded = entry.id === expandedArchiveId
-
-                return (
-                  <article
-                    key={entry.id}
-                    className={`archive-card ${isExpanded ? 'is-active' : ''}`}
-                  >
-                    <div className="archive-card__meta">
-                      <p className="eyebrow">Saved Reading</p>
-                      <span className="section__count">
-                        {formatArchiveTime(entry.createdAt)}
-                      </span>
-                    </div>
-
-                    <h3>{entry.question}</h3>
-
-                    <div className="signal-strip">
-                      <span>{entry.topicLabel}</span>
-                      <span>{entry.spreadTitle}</span>
-                      <span>{entry.tone}</span>
-                    </div>
-
-                    <p>{entry.summary}</p>
-
-                    <div className="draw-summary__actions">
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() =>
-                          setExpandedArchiveId(isExpanded ? null : entry.id)
-                        }
-                      >
-                        {isExpanded ? '收起详情' : '查看详情'}
-                      </button>
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() => void handleShareArchive(entry)}
-                      >
-                        分享归档
-                      </button>
-                    </div>
-
-                    {isExpanded ? (
-                      <div className="archive-card__details">
-                        <div className="archive-card__block">
-                          <h4>牌阵回看</h4>
-                          <ul className="result-list">
-                            {entry.cards.map((card) => (
-                              <li
-                                key={`${entry.id}-${card.positionLabel}-${card.cardName}`}
-                              >
-                                <strong>{card.positionLabel}</strong>
-                                <span>
-                                  {card.cardName} ·{' '}
-                                  {card.orientation === 'up' ? '正位' : '逆位'}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="archive-card__block">
-                          <h4>行动建议</h4>
-                          <ul className="advice-list">
-                            {entry.advice.map((advice) => (
-                              <li key={`${entry.id}-${advice}`}>{advice}</li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="archive-card__block">
-                          <h4>关键信号</h4>
-                          <div className="signal-strip">
-                            {entry.dominantSignals.map((signal) => (
-                              <span key={`${entry.id}-${signal}`}>{signal}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </article>
-                )
-              })}
-            </div>
+            <p className="selection-note">
+              选好问题、主题与牌阵后开始抽牌。抽中的牌会先在 78 张牌桌里亮起，再落入对应布局。
+            </p>
           )}
-
-          {archiveShareMessage ? (
-            <p className="selection-note">{archiveShareMessage}</p>
-          ) : null}
         </section>
-      </main>
+
+        <RecordCenter
+          filter={recordFilter}
+          onFilterChange={setRecordFilter}
+          onQueryChange={setRecordQuery}
+          query={recordQuery}
+          records={records}
+        />
+
+        <section id="encyclopedia">
+          <CardEncyclopedia featuredCardIds={featuredCardIds} />
+        </section>
+      </div>
     </div>
   )
 }

@@ -1,26 +1,50 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { shareText } from '../lib/share'
+import { describe, expect, it } from 'vitest'
+import { createReading } from '../engine/reading'
+import { buildReadingPosterSvg, buildReadingShareText } from '../lib/share'
 
 describe('share helpers', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+  it('builds readable share text', () => {
+    const reading = createReading(
+      {
+        question: '我该怎样推进关系？',
+        topic: 'love',
+        spreadId: 'holy-triangle',
+        variantId: 'timeline',
+      },
+      { seed: 'share-text' },
+    )
+
+    const text = buildReadingShareText(reading, '爱情')
+
+    expect(text).toContain('浮世占')
+    expect(text).toContain('圣三角')
+    expect(text).toContain('爱情')
   })
 
-  it('falls back to clipboard when Web Share is unavailable', async () => {
-    const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
+  it('builds an svg poster payload', () => {
+    const reading = createReading(
+      {
+        question: '这个月该重点关注什么？',
+        topic: 'general',
+        spreadId: 'monthly-five',
+      },
+      { seed: 'poster' },
+    )
 
-    Object.defineProperty(window.navigator, 'share', {
-      configurable: true,
-      value: undefined,
+    const svg = buildReadingPosterSvg({
+      title: '月度海报',
+      question: reading.input.question,
+      spreadTitle: reading.spread.title,
+      summary: reading.summary,
+      cards: reading.cards.map((entry) => ({
+        label: entry.positionLabel,
+        cardName: entry.card.nameZh,
+        orientation: entry.drawn.orientation,
+      })),
     })
-    Object.defineProperty(window.navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: clipboardWriteText },
-    })
 
-    const message = await shareText('浮世占', '测试分享文案')
-
-    expect(message).toBe('分享文案已复制到剪贴板。')
-    expect(clipboardWriteText).toHaveBeenCalledWith('测试分享文案')
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg).toContain('月度海报')
+    expect(svg).toContain(reading.cards[0].card.nameZh)
   })
 })

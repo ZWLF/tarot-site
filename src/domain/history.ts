@@ -1,4 +1,10 @@
-import type { Orientation, ReadingResult } from './tarot'
+import type {
+  DailyReflection,
+  Orientation,
+  ReadingResult,
+  SavedActionPlanStep,
+  TopicId,
+} from './tarot'
 
 export interface SavedReadingCard {
   positionLabel: string
@@ -10,7 +16,7 @@ export interface SavedReadingEntry {
   id: string
   createdAt: string
   question: string
-  topicId: ReadingResult['input']['topic']
+  topicId: TopicId
   topicLabel: string
   spreadId: ReadingResult['spread']['id']
   spreadTitle: string
@@ -19,4 +25,22 @@ export interface SavedReadingEntry {
   advice: string[]
   dominantSignals: string[]
   cards: SavedReadingCard[]
+}
+
+export interface LegacySavedReadingRecord {
+  id: string
+  title: string
+  category: TopicId
+  tags: string[]
+  createdAt: string
+  question: string
+  spreadTitle: string
+  topicLabel: string
+  tone: string
+  summary: string
+  dominantSignals: string[]
+  cards: SavedReadingCard[]
+  actionPlan: SavedActionPlanStep[]
+  followUps: unknown[]
+  dailyReflection?: DailyReflection
 }

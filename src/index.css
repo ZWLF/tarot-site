@@ -1,10 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
-
 :root {
-  font-family: 'Noto Serif SC', serif;
+  --font-body:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  --font-display:
+    'Baskerville Old Face', 'Times New Roman', 'Songti SC', serif;
+  --bg-night: #14212c;
+  --accent-gold: #d3a54d;
+  --text-main: #f6ead0;
+  --text-soft: rgba(246, 234, 208, 0.76);
+  font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
-  color: #f6ead0;
+  color: var(--text-main);
   background:
     radial-gradient(circle at top, rgba(45, 85, 122, 0.32), transparent 34%),
     radial-gradient(circle at 20% 20%, rgba(185, 46, 65, 0.18), transparent 30%),
@@ -13,10 +19,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --bg-night: #14212c;
-  --accent-gold: #d3a54d;
-  --text-main: #f6ead0;
-  --text-soft: rgba(246, 234, 208, 0.76);
 }
 
 * {
@@ -26,6 +28,7 @@
 html {
   min-width: 320px;
   background: #09131b;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -34,11 +37,19 @@ body {
   min-height: 100vh;
 }
 
+body,
 button,
 textarea,
 input,
 select {
-  font: inherit;
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+.eyebrow {
+  font-family: var(--font-display);
 }
 
 button {

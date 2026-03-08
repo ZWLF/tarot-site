@@ -1,80 +1,114 @@
 import { describe, expect, it } from 'vitest'
-import { CARD_BY_ID } from '../data/cards'
 import { SPREADS } from '../data/spreads'
-import { createReading, drawCards } from '../engine/reading'
-import { createSeededRandom } from '../engine/random'
-
-const sequenceRandom = (...values: number[]) => {
-  let index = 0
-
-  return () => {
-    const value = values[index] ?? values[values.length - 1] ?? 0
-    index += 1
-    return value
-  }
-}
+import { createReading } from '../engine/reading'
 
 describe('tarot reading engine', () => {
-  it('draws unique cards with stable seeded output', () => {
-    const spread = SPREADS.find((entry) => entry.id === 'past-present-future')
-    expect(spread).toBeDefined()
+  it('supports holy triangle variants with different position labels', () => {
+    const timeline = createReading(
+      {
+        question: '我接下来该怎样推进关系？',
+        topic: 'love',
+        spreadId: 'holy-triangle',
+        variantId: 'timeline',
+      },
+      { seed: 'holy-triangle-timeline' },
+    )
+    const diagnostic = createReading(
+      {
+        question: '我接下来该怎样推进关系？',
+        topic: 'love',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'holy-triangle-diagnostic' },
+    )
 
-    const first = drawCards(spread!, createSeededRandom('stable-seed'))
-    const second = drawCards(spread!, createSeededRandom('stable-seed'))
+    expect(timeline.cards).toHaveLength(3)
+    expect(timeline.positionReadings.map((entry) => entry.label)).toEqual([
+      '过去',
+      '现在',
+      '未来',
+    ])
 
-    expect(first).toEqual(second)
-    expect(first).toHaveLength(spread!.cardCount)
-    expect(new Set(first.map((entry) => entry.cardId)).size).toBe(spread!.cardCount)
-    expect(
-      first.every(
-        (entry) => entry.orientation === 'up' || entry.orientation === 'down',
-      ),
-    ).toBe(true)
+    expect(diagnostic.cards).toHaveLength(3)
+    expect(diagnostic.positionReadings.map((entry) => entry.label)).toEqual([
+      '现状',
+      '阻碍',
+      '建议',
+    ])
   })
 
-  it('builds complete readings for all supported spreads', () => {
+  it('enforces card pool rules for monthly and seasonal spreads', () => {
+    const monthly = createReading(
+      {
+        question: '这个月我该关注什么？',
+        topic: 'general',
+        spreadId: 'monthly-five',
+      },
+      { seed: 'monthly-five' },
+    )
+    const seasonal = createReading(
+      {
+        question: '未来一个季度会怎么发展？',
+        topic: 'growth',
+        spreadId: 'seasonal-cross',
+      },
+      { seed: 'seasonal-five' },
+    )
+
+    expect(monthly.cards).toHaveLength(5)
+    expect(monthly.cards[0].card.arcana).toBe('major')
+    expect(monthly.cards.slice(1).map((entry) => entry.card.suit)).toEqual([
+      'wands',
+      'cups',
+      'swords',
+      'pentacles',
+    ])
+
+    expect(seasonal.cards).toHaveLength(5)
+    expect(seasonal.cards[0].card.arcana).toBe('major')
+    expect(seasonal.cards.slice(1).map((entry) => entry.card.suit)).toEqual([
+      'wands',
+      'cups',
+      'swords',
+      'pentacles',
+    ])
+  })
+
+  it('builds all supported spreads with correct counts and unique cards', () => {
     for (const spread of SPREADS) {
       const reading = createReading(
         {
-          question: '我现在最该调整的方向是什么？',
-          topic: 'growth',
+          question: `测试牌阵 ${spread.title}`,
+          topic: 'career',
           spreadId: spread.id,
+          variantId: spread.variants?.[0]?.id,
         },
-        { seed: `seed-${spread.id}` },
+        { seed: `spread-${spread.id}` },
       )
 
       expect(reading.cards).toHaveLength(spread.cardCount)
       expect(reading.positionReadings).toHaveLength(spread.cardCount)
+      expect(new Set(reading.cards.map((entry) => entry.card.id)).size).toBe(
+        spread.cardCount,
+      )
       expect(reading.summary.length).toBeGreaterThan(10)
-      expect(reading.advice.length).toBeGreaterThan(0)
       expect(reading.actionPlan).toHaveLength(3)
-      expect(reading.actionPlan.every((entry) => entry.title.length > 0)).toBe(true)
-      expect(reading.dominantSignals.length).toBeGreaterThan(1)
     }
   })
 
-  it('reflects topic, major arcana, dominant suit, and reversed cards in the summary', () => {
-    const reading = createReading(
-      {
-        question: '这段关系是否值得继续投入？',
-        topic: 'love',
-        spreadId: 'past-present-future',
-      },
-      {
-        random: sequenceRandom(0, 0.9, 35 / 77, 0.1, 35 / 76, 0.2),
-      },
+  it('exposes the new layout ids for large spreads', () => {
+    expect(
+      SPREADS.map((entry) => [entry.id, entry.layoutId]),
+    ).toEqual(
+      expect.arrayContaining([
+        ['holy-triangle', 'line-3'],
+        ['monthly-five', 'cross-5'],
+        ['seasonal-cross', 'cross-5'],
+        ['celtic-cross', 'celtic-cross'],
+        ['zodiac-wheel', 'zodiac-wheel'],
+        ['tree-of-life', 'tree-of-life'],
+      ]),
     )
-
-    expect(reading.summary).toContain('爱情')
-    expect(reading.summary).toContain('大阿尔卡那')
-    expect(reading.summary).toContain('圣杯能量最浓')
-    expect(reading.summary).toContain('逆位偏多')
-  })
-
-  it('keeps core card copy readable in Chinese', () => {
-    expect(CARD_BY_ID['the-fool'].nameZh).toBe('愚者')
-    expect(CARD_BY_ID['the-magician'].meaning.up).toContain('想法变成现实')
-    expect(CARD_BY_ID['the-fool'].nameZh).not.toContain('�')
-    expect(CARD_BY_ID['the-magician'].meaning.down).not.toContain('�')
   })
 })

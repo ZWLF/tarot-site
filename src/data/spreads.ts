@@ -4,21 +4,23 @@ export const SPREADS: SpreadDefinition[] = [
   {
     id: 'single-guidance',
     title: '单张指引',
-    description: '适合快速聚焦当下核心讯息，给出一个明确方向。',
+    description: '给当下一个清晰提醒，适合快问快答或定调。',
     cardCount: 1,
+    layoutId: 'single',
     positions: [
       {
         key: 'guidance',
         label: '指引',
-        prompt: '此刻最该看见的核心提醒',
+        prompt: '此刻最值得看见的核心提醒',
       },
     ],
   },
   {
     id: 'daily-energy',
-    title: '今日能量',
-    description: '快速查看今天最值得留意的情绪基调、行动重点与提醒。',
+    title: '每日一张',
+    description: '快速查看当天的节奏、情绪与行动重点。',
     cardCount: 1,
+    layoutId: 'single',
     positions: [
       {
         key: 'energy',
@@ -28,10 +30,11 @@ export const SPREADS: SpreadDefinition[] = [
     ],
   },
   {
-    id: 'past-present-future',
-    title: '过去 / 现在 / 未来',
-    description: '查看一个议题如何形成、如何发展，以及下一步趋势。',
+    id: 'holy-triangle',
+    title: '圣三角',
+    description: '经典三张牌阵，可在时间轴与问题诊断之间切换。',
     cardCount: 3,
+    layoutId: 'line-3',
     positions: [
       {
         key: 'past',
@@ -49,40 +52,64 @@ export const SPREADS: SpreadDefinition[] = [
         prompt: '若维持当前节奏，接下来会走向哪里',
       },
     ],
-  },
-  {
-    id: 'situation-obstacle-advice',
-    title: '现状 / 阻碍 / 建议',
-    description: '适合处理明确问题，帮助你看见卡点和可执行建议。',
-    cardCount: 3,
-    positions: [
+    variants: [
       {
-        key: 'situation',
-        label: '现状',
-        prompt: '问题当前最主要的真实样貌',
+        id: 'timeline',
+        title: '过去 / 现在 / 未来',
+        description: '适合看时间轴上的变化与趋势。',
+        positions: [
+          {
+            key: 'past',
+            label: '过去',
+            prompt: '过去如何塑造现在的局面',
+          },
+          {
+            key: 'present',
+            label: '现在',
+            prompt: '此刻最真实的状态与焦点',
+          },
+          {
+            key: 'future',
+            label: '未来',
+            prompt: '若维持当前节奏，接下来会走向哪里',
+          },
+        ],
       },
       {
-        key: 'obstacle',
-        label: '阻碍',
-        prompt: '此刻最需要辨认的阻力或盲点',
-      },
-      {
-        key: 'advice',
-        label: '建议',
-        prompt: '眼下最值得采取的下一步',
+        id: 'diagnostic',
+        title: '现状 / 阻碍 / 建议',
+        description: '适合看问题卡点与可执行建议。',
+        positions: [
+          {
+            key: 'situation',
+            label: '现状',
+            prompt: '问题当前最主要的真实样貌',
+          },
+          {
+            key: 'obstacle',
+            label: '阻碍',
+            prompt: '此刻最需要辨认的阻力或盲点',
+          },
+          {
+            key: 'advice',
+            label: '建议',
+            prompt: '眼下最值得采取的下一步',
+          },
+        ],
       },
     ],
   },
   {
     id: 'decision-compass',
     title: '抉择罗盘',
-    description: '适合比较两个方向的代价与潜力，帮你看见更适合自己的路径。',
+    description: '比较两个方向的代价与潜力，帮助做出更清晰的选择。',
     cardCount: 4,
+    layoutId: 'decision-compass',
     positions: [
       {
         key: 'core',
         label: '核心',
-        prompt: '这次抉择真正牵动的核心课题',
+        prompt: '这次抉择真正牵动的核心议题',
       },
       {
         key: 'path-a',
@@ -104,8 +131,9 @@ export const SPREADS: SpreadDefinition[] = [
   {
     id: 'relationship-mirror',
     title: '关系映照',
-    description: '用四张牌看清双方状态、互动课题，以及关系接下来如何推进。',
+    description: '看清双方状态、互动课题，以及关系下一步该如何推进。',
     cardCount: 4,
+    layoutId: 'relationship-mirror',
     positions: [
       {
         key: 'self',
@@ -132,8 +160,9 @@ export const SPREADS: SpreadDefinition[] = [
   {
     id: 'weekly-flow',
     title: '七日流向',
-    description: '用五张牌查看接下来一周的主轴、助力、风险与行动焦点。',
+    description: '查看未来一周的主轴、助力、风险与行动焦点。',
     cardCount: 5,
+    layoutId: 'weekly-flow',
     positions: [
       {
         key: 'theme',
@@ -148,7 +177,7 @@ export const SPREADS: SpreadDefinition[] = [
       {
         key: 'challenge',
         label: '挑战',
-        prompt: '本周最需要留意的阻力与波动',
+        prompt: '这周最需要留意的阻力与波动',
       },
       {
         key: 'action',
@@ -158,8 +187,145 @@ export const SPREADS: SpreadDefinition[] = [
       {
         key: 'outlook',
         label: '展望',
-        prompt: '若按当前节奏推进，一周后的整体趋势',
+        prompt: '按当前节奏推进，一周后的整体趋势',
       },
+    ],
+  },
+  {
+    id: 'monthly-five',
+    title: '五张月度牌阵',
+    description: '每月的核心主题与四元素扫描，适合做月度全景体检。',
+    cardCount: 5,
+    layoutId: 'cross-5',
+    positions: [
+      {
+        key: 'theme',
+        label: '本月核心主题',
+        prompt: '这个月最重要的大方向与底色',
+        drawPool: 'major',
+      },
+      {
+        key: 'fire',
+        label: '火 · 行动',
+        prompt: '行动力、推进感与执行层面的趋势',
+        drawPool: 'wands',
+      },
+      {
+        key: 'water',
+        label: '水 · 情感',
+        prompt: '情绪、连接与关系流动的状态',
+        drawPool: 'cups',
+      },
+      {
+        key: 'air',
+        label: '风 · 压力',
+        prompt: '压力、判断与思维负荷的来源',
+        drawPool: 'swords',
+      },
+      {
+        key: 'earth',
+        label: '土 · 物质',
+        prompt: '现实资源、金钱与稳定度的趋势',
+        drawPool: 'pentacles',
+      },
+    ],
+  },
+  {
+    id: 'seasonal-cross',
+    title: '四季牌阵',
+    description: '用一张大牌定季度基调，再扫描四大元素领域。',
+    cardCount: 5,
+    layoutId: 'cross-5',
+    positions: [
+      {
+        key: 'tone',
+        label: '季度基调',
+        prompt: '未来三个月的整体主题与大环境',
+        drawPool: 'major',
+      },
+      {
+        key: 'fire',
+        label: '火域行动',
+        prompt: '行动、野心与突破的能量走向',
+        drawPool: 'wands',
+      },
+      {
+        key: 'water',
+        label: '水域情感',
+        prompt: '情绪、关系与内在连结的变化',
+        drawPool: 'cups',
+      },
+      {
+        key: 'air',
+        label: '风域压力',
+        prompt: '思维、判断与外界压力的流向',
+        drawPool: 'swords',
+      },
+      {
+        key: 'earth',
+        label: '土域物质',
+        prompt: '资源、现实基础与结果承接度',
+        drawPool: 'pentacles',
+      },
+    ],
+  },
+  {
+    id: 'celtic-cross',
+    title: '凯尔特十字',
+    description: '适合剖析复杂僵局与重大抉择的经典深度牌阵。',
+    cardCount: 10,
+    layoutId: 'celtic-cross',
+    positions: [
+      { key: 'present', label: '现状', prompt: '事件当前的核心处境' },
+      { key: 'challenge', label: '阻碍', prompt: '横在当前局面上的阻力' },
+      { key: 'conscious', label: '意识', prompt: '你已知且能说出的动机' },
+      { key: 'unconscious', label: '潜意识', prompt: '更深层的情绪与底层驱动' },
+      { key: 'past', label: '过去', prompt: '把你带到这里的关键前因' },
+      { key: 'future', label: '近未来', prompt: '短期内最可能浮现的趋势' },
+      { key: 'self', label: '自我', prompt: '你当前的姿态与角色' },
+      { key: 'environment', label: '环境', prompt: '外部环境与他人影响' },
+      { key: 'fear-hope', label: '希望 / 恐惧', prompt: '最隐秘的期待与担忧' },
+      { key: 'outcome', label: '结果', prompt: '若按当前轨迹推进，最终走向' },
+    ],
+  },
+  {
+    id: 'zodiac-wheel',
+    title: '黄道十二宫',
+    description: '按 12 宫位做年运或月运的全科扫描。',
+    cardCount: 12,
+    layoutId: 'zodiac-wheel',
+    positions: [
+      { key: 'house-1', label: '第一宫 · 自我', prompt: '自我状态、气场与自我感' },
+      { key: 'house-2', label: '第二宫 · 财务', prompt: '金钱、资源与价值感' },
+      { key: 'house-3', label: '第三宫 · 沟通', prompt: '表达、学习与近距离互动' },
+      { key: 'house-4', label: '第四宫 · 家庭', prompt: '家庭、根基与内在安全感' },
+      { key: 'house-5', label: '第五宫 · 恋爱创造', prompt: '恋爱、创意与玩心' },
+      { key: 'house-6', label: '第六宫 · 工作健康', prompt: '日常工作、节奏与身体照料' },
+      { key: 'house-7', label: '第七宫 · 关系', prompt: '伴侣、合作与重要他人' },
+      { key: 'house-8', label: '第八宫 · 转化', prompt: '共享资源、亲密与深层转化' },
+      { key: 'house-9', label: '第九宫 · 远行信念', prompt: '远行、进修与世界观扩展' },
+      { key: 'house-10', label: '第十宫 · 事业名望', prompt: '事业目标、声誉与公众形象' },
+      { key: 'house-11', label: '第十一宫 · 社群愿景', prompt: '朋友、社群与长期愿景' },
+      { key: 'house-12', label: '第十二宫 · 潜意识', prompt: '潜意识、收尾与看不见的影响' },
+    ],
+  },
+  {
+    id: 'tree-of-life',
+    title: '生命之树',
+    description: '从王冠到王国，探索灵魂、使命与人生哲学。',
+    cardCount: 10,
+    layoutId: 'tree-of-life',
+    positions: [
+      { key: 'keter', label: '王冠', prompt: '你最上层的召唤与灵光' },
+      { key: 'chokmah', label: '智慧', prompt: '直觉、洞见与原初推动力' },
+      { key: 'binah', label: '理解', prompt: '结构、边界与真正的认知' },
+      { key: 'chesed', label: '慈悲', prompt: '给予、扩张与宽容的力量' },
+      { key: 'gevurah', label: '严厉', prompt: '规则、克制与必要的切割' },
+      { key: 'tiferet', label: '美', prompt: '内在整合与最真实的核心' },
+      { key: 'netzach', label: '胜利', prompt: '欲望、坚持与情感推进' },
+      { key: 'hod', label: '荣耀', prompt: '逻辑、语言与理性组织' },
+      { key: 'yesod', label: '基础', prompt: '潜在结构、习惯与能量底盘' },
+      { key: 'malkuth', label: '王国', prompt: '现实世界中的落地与显化' },
     ],
   },
 ]
