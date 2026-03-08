@@ -1,73 +1,43 @@
-# React + TypeScript + Vite
+# 浮世塔罗
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+浮世塔罗是一个中文塔罗单页应用，重点放在三件事：把 78 张牌真正铺开、让牌阵逻辑足够完整、以及把结果沉淀成可回看的记录。
 
-Currently, two official plugins are available:
+## 现在包含
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 78 张代码生成的独立牌面与完整牌桌展示
+- 每日一张、晨间意图、晚间复盘与共鸣标记
+- 圣三角、五张月度、四季、凯尔特十字、黄道十二宫、生命之树等 11 套牌阵
+- 统一记录中心，整合自动归档、手动收藏与每日记录
+- 分享文案与 PNG 海报导出
+- 牌卡百科，可聚焦本次抽到的牌或切换到完整牌库
 
-## React Compiler
+## 本地开发
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+默认启动后访问本地 Vite 地址。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 质量校验
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint
+npm test
+npm run build
 ```
+
+## 数据说明
+
+- 所有记录都保存在浏览器本地存储，不接入后端。
+- 当前统一存储键为 `ukiyo-tarot.records-v2`。
+- 应用会自动迁移旧版本的 `saved-readings` 和 `reading-history` 数据。
+
+## 目录结构
+
+- `src/App.tsx`: 主装配层与页面分区
+- `src/engine`: 抽牌逻辑、记录构建与存储迁移
+- `src/components`: 牌桌、牌阵布局、记录中心、百科等 UI 模块
+- `src/data`: 牌库、牌阵、主题与牌面视觉元数据
+- `src/test`: 引擎、存储、分享与主流程测试
