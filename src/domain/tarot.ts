@@ -8,6 +8,17 @@ export type TopicId =
 export type Arcana = 'major' | 'minor'
 export type Suit = 'wands' | 'cups' | 'swords' | 'pentacles' | null
 export type Orientation = 'up' | 'down'
+export type DrawPool = 'any' | 'major' | 'wands' | 'cups' | 'swords' | 'pentacles'
+export type LayoutId =
+  | 'single'
+  | 'line-3'
+  | 'cross-5'
+  | 'decision-compass'
+  | 'relationship-mirror'
+  | 'weekly-flow'
+  | 'celtic-cross'
+  | 'zodiac-wheel'
+  | 'tree-of-life'
 
 interface TarotCardBase {
   id: string
@@ -42,6 +53,14 @@ export interface SpreadPosition {
   key: string
   label: string
   prompt: string
+  drawPool?: DrawPool
+}
+
+export interface SpreadVariantDefinition {
+  id: string
+  title: string
+  description: string
+  positions: SpreadPosition[]
 }
 
 export interface SpreadDefinition {
@@ -49,13 +68,24 @@ export interface SpreadDefinition {
   title: string
   description: string
   cardCount: number
+  layoutId: LayoutId
   positions: SpreadPosition[]
+  variants?: SpreadVariantDefinition[]
+  summaryFrame?: string
+}
+
+export interface ResolvedSpreadDefinition
+  extends Omit<SpreadDefinition, 'positions' | 'variants'> {
+  positions: SpreadPosition[]
+  activeVariantId?: string
+  activeVariantTitle?: string
 }
 
 export interface ReadingInput {
   question: string
   topic: TopicId
   spreadId: string
+  variantId?: string
 }
 
 export interface DrawnCard {
@@ -66,9 +96,13 @@ export interface DrawnCard {
 
 export interface CardArtManifest {
   cardId: string
-  label: string
-  imageSrc?: string
   accentToken: 'gold' | 'crimson' | 'azure' | 'jade'
+  frame: 'sun' | 'moon' | 'gate' | 'ribbon'
+  motif: string
+  constellation: string
+  seal: string
+  background: 'dawn' | 'ember' | 'mist' | 'night'
+  glyphs: string[]
 }
 
 export interface ReadingCardView {
@@ -98,7 +132,7 @@ export interface ActionPlanStep {
 
 export interface ReadingResult {
   input: ReadingInput
-  spread: SpreadDefinition
+  spread: ResolvedSpreadDefinition
   cards: ReadingCardView[]
   positionReadings: PositionReading[]
   summary: string
@@ -127,23 +161,40 @@ export interface SavedActionPlanStep extends ActionPlanStep {
   done: boolean
 }
 
-export interface SavedReadingRecord {
+export interface DailyReflection {
+  morningIntent: string
+  eveningReview: string
+  resonance: 'strong' | 'mixed' | 'low' | null
+}
+
+export interface ReadingRecordV2Card {
+  positionLabel: string
+  cardId: string
+  cardName: string
+  orientation: Orientation
+}
+
+export interface ReadingRecordV2 {
+  version: 2
   id: string
-  title: string
-  category: TopicId
-  tags: string[]
+  kind: 'reading' | 'daily'
+  saved: boolean
   createdAt: string
+  updatedAt: string
+  title: string
   question: string
-  spreadTitle: string
+  topicId: TopicId
   topicLabel: string
+  spreadId: string
+  spreadTitle: string
+  variantId?: string
+  variantTitle?: string
   tone: string
   summary: string
   dominantSignals: string[]
-  cards: Array<{
-    positionLabel: string
-    cardName: string
-    orientation: Orientation
-  }>
+  tags: string[]
+  cards: ReadingRecordV2Card[]
   actionPlan: SavedActionPlanStep[]
   followUps: FollowUpRecord[]
+  dailyReflection: DailyReflection
 }

@@ -25,6 +25,7 @@ export const buildSavedReadingEntry = (
     reading.input.question.trim(),
     reading.input.topic,
     reading.spread.id,
+    reading.spread.activeVariantId ?? '',
     ...reading.cards.map(
       (entry) =>
         `${entry.drawn.positionKey}:${entry.card.id}:${entry.drawn.orientation}`,
@@ -76,10 +77,10 @@ export const saveReadingHistoryEntry = (entry: SavedReadingEntry) => {
     return []
   }
 
-  const nextHistory = [entry, ...loadReadingHistory().filter((item) => item.id !== entry.id)].slice(
-    0,
-    MAX_HISTORY_ENTRIES,
-  )
+  const nextHistory = [
+    entry,
+    ...loadReadingHistory().filter((item) => item.id !== entry.id),
+  ].slice(0, MAX_HISTORY_ENTRIES)
 
   window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
 
