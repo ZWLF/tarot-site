@@ -24,7 +24,7 @@ powershell -NoProfile -Command ^
   "  exit 0;" ^
   "}" ^
   "foreach ($targetPid in $targets) {" ^
-  "  Start-Process -FilePath 'taskkill.exe' -ArgumentList @('/PID', $targetPid, '/T', '/F') -Wait -NoNewWindow | Out-Null;" ^
+  "  & taskkill.exe /PID $targetPid /T /F *> $null;" ^
   "}" ^
   "Remove-Item -LiteralPath $pidFile -ErrorAction SilentlyContinue;" ^
   "Write-Host ('Stopped Tarot dev server on port {0}. PIDs: {1}' -f $port, ($targets -join ', '))"
