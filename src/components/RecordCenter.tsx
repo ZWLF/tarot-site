@@ -1,11 +1,21 @@
 import type { ReadingRecordV2 } from '../domain/tarot'
+import { CARD_IMAGE_BY_ID } from '../data/cardImages'
+
+export type RecordDateFilter = 'all' | '7d' | '30d'
 
 interface RecordCenterProps {
   records: ReadingRecordV2[]
   filter: 'all' | 'saved' | 'auto' | 'daily'
   query: string
+  tagFilter: string
+  dateFilter: RecordDateFilter
+  compareSelection: string[]
   onFilterChange: (filter: 'all' | 'saved' | 'auto' | 'daily') => void
   onQueryChange: (value: string) => void
+  onTagFilterChange: (value: string) => void
+  onDateFilterChange: (value: RecordDateFilter) => void
+  onToggleCompare: (recordId: string) => void
+  onClearCompare: () => void
 }
 
 const matchesRecord = (record: ReadingRecordV2, query: string) => {
@@ -28,13 +38,41 @@ const matchesRecord = (record: ReadingRecordV2, query: string) => {
     .includes(normalizedQuery)
 }
 
+const withinDateRange = (iso: string, filter: RecordDateFilter) => {
+  if (filter === 'all') {
+    return true
+  }
+
+  const now = Date.now()
+  const time = new Date(iso).getTime()
+  const days = filter === '7d' ? 7 : 30
+
+  return now - time <= days * 24 * 60 * 60 * 1000
+}
+
+const formatRecordTime = (iso: string) =>
+  new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
+
 export function RecordCenter({
   records,
   filter,
   query,
+  tagFilter,
+  dateFilter,
+  compareSelection,
   onFilterChange,
   onQueryChange,
+  onTagFilterChange,
+  onDateFilterChange,
+  onToggleCompare,
+  onClearCompare,
 }: RecordCenterProps) {
+  const availableTags = Array.from(new Set(records.flatMap((record) => record.tags))).sort()
   const filteredRecords = records.filter((record) => {
     const matchesFilter =
       filter === 'all'
@@ -44,9 +82,15 @@ export function RecordCenter({
           : filter === 'daily'
             ? record.kind === 'daily'
             : record.kind === 'reading' && !record.saved
+    const matchesTag = tagFilter.length === 0 ? true : record.tags.includes(tagFilter)
+    const matchesDate = withinDateRange(record.updatedAt, dateFilter)
 
-    return matchesFilter && matchesRecord(record, query)
+    return matchesFilter && matchesTag && matchesDate && matchesRecord(record, query)
   })
+
+  const compareRecords = compareSelection
+    .map((id) => records.find((record) => record.id === id))
+    .filter((record): record is ReadingRecordV2 => record !== undefined)
 
   return (
     <section className="panel section" id="records">
@@ -110,79 +154,198 @@ export function RecordCenter({
         </label>
       </div>
 
-      <div className="record-grid">
-        {filteredRecords.length > 0 ? (
-          filteredRecords.map((record) => (
-            <article key={record.id} className="record-card">
-              <div className="record-card__meta">
-                <p className="eyebrow">{record.kind === 'daily' ? 'Daily' : 'Reading'}</p>
-                <span>{new Intl.DateTimeFormat('zh-CN', {
-                  month: 'numeric',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date(record.updatedAt))}</span>
-              </div>
+      <div className="record-controls">
+        <label className="inline-input">
+          <span>标签筛选</span>
+          <select value={tagFilter} onChange={(event) => onTagFilterChange(event.target.value)}>
+            <option value="">全部标签</option>
+            {availableTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="inline-input">
+          <span>时间筛选</span>
+          <select
+            value={dateFilter}
+            onChange={(event) => onDateFilterChange(event.target.value as RecordDateFilter)}
+          >
+            <option value="all">全部时间</option>
+            <option value="7d">最近 7 天</option>
+            <option value="30d">最近 30 天</option>
+          </select>
+        </label>
+      </div>
 
+      <div className="compare-toolbar">
+        <p className="selection-note">对比模式：已选择 {compareSelection.length}/2 条</p>
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={onClearCompare}
+          disabled={compareSelection.length === 0}
+        >
+          清空对比
+        </button>
+      </div>
+
+      {compareRecords.length > 0 ? (
+        <div className="compare-panel">
+          {compareRecords.map((record) => (
+            <article key={`compare-${record.id}`} className="result-panel">
+              <p className="eyebrow">对比项</p>
               <h3>{record.title}</h3>
               <p className="record-card__question">“{record.question}”</p>
-
               <div className="signal-strip">
                 <span>{record.topicLabel}</span>
                 <span>{record.spreadTitle}</span>
                 <span>{record.tone}</span>
-                {record.saved ? <span>已收藏</span> : null}
               </div>
-
               <p>{record.summary}</p>
 
-              {record.tags.length > 0 ? (
-                <div className="signal-strip">
-                  {record.tags.map((tag) => (
-                    <span key={`${record.id}-${tag}`}>#{tag}</span>
-                  ))}
-                </div>
-              ) : null}
+              <div className="record-card__thumbs">
+                {record.cards.slice(0, 6).map((card) => {
+                  const imageUrl = CARD_IMAGE_BY_ID[card.cardId]
 
-              {record.kind === 'daily' ? (
-                <div className="record-card__details">
-                  <div>
-                    <h4>晨间意图</h4>
-                    <p>{record.dailyReflection.morningIntent || '未填写'}</p>
-                  </div>
-                  <div>
-                    <h4>晚间复盘</h4>
-                    <p>{record.dailyReflection.eveningReview || '未填写'}</p>
-                  </div>
+                  return imageUrl ? (
+                    <img
+                      key={`${record.id}-${card.cardId}-${card.positionLabel}`}
+                      src={imageUrl}
+                      alt={`${card.cardName}牌面`}
+                      loading="lazy"
+                    />
+                  ) : null
+                })}
+              </div>
+              <div className="record-card__details">
+                <div>
+                  <h4>牌位</h4>
+                  <ul className="advice-list">
+                    {record.cards.map((card) => (
+                      <li key={`${record.id}-${card.positionLabel}-${card.cardId}`}>
+                        {card.positionLabel} · {card.cardName} ·{' '}
+                        {card.orientation === 'up' ? '正位' : '逆位'}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ) : (
-                <div className="record-card__details">
-                  <div>
-                    <h4>行动计划</h4>
-                    <ul className="advice-list">
-                      {record.actionPlan.map((step) => (
-                        <li key={`${record.id}-${step.id}`}>
-                          {step.done ? '已完成' : '待完成'} · {step.title}
-                        </li>
-                      ))}
-                    </ul>
+                <div>
+                  <h4>行动计划</h4>
+                  <ul className="advice-list">
+                    {record.actionPlan.map((step) => (
+                      <li key={`${record.id}-${step.id}`}>
+                        {step.done ? '已完成' : '待完成'} · {step.title}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="record-grid">
+        {filteredRecords.length > 0 ? (
+          filteredRecords.map((record) => {
+            const selected = compareSelection.includes(record.id)
+            const disabled = !selected && compareSelection.length >= 2
+
+            return (
+              <article key={record.id} className="record-card">
+                <div className="record-card__meta">
+                  <p className="eyebrow">{record.kind === 'daily' ? 'Daily' : 'Reading'}</p>
+                  <span>{formatRecordTime(record.updatedAt)}</span>
+                </div>
+
+                <h3>{record.title}</h3>
+                <p className="record-card__question">“{record.question}”</p>
+
+                <div className="signal-strip">
+                  <span>{record.topicLabel}</span>
+                  <span>{record.spreadTitle}</span>
+                  <span>{record.tone}</span>
+                  {record.saved ? <span>已收藏</span> : null}
+                </div>
+
+                <p>{record.summary}</p>
+
+                <div className="record-card__thumbs">
+                  {record.cards.slice(0, 6).map((card) => {
+                    const imageUrl = CARD_IMAGE_BY_ID[card.cardId]
+
+                    return imageUrl ? (
+                      <img
+                        key={`${record.id}-${card.cardId}-${card.positionLabel}`}
+                        src={imageUrl}
+                        alt={`${card.cardName}牌面`}
+                        loading="lazy"
+                      />
+                    ) : null
+                  })}
+                </div>
+
+                {record.tags.length > 0 ? (
+                  <div className="signal-strip">
+                    {record.tags.map((tag) => (
+                      <span key={`${record.id}-${tag}`}>#{tag}</span>
+                    ))}
                   </div>
-                  <div>
-                    <h4>追问</h4>
-                    {record.followUps.length > 0 ? (
+                ) : null}
+
+                <div className="record-card__actions">
+                  <button
+                    className={`pill ${selected ? 'is-active' : ''}`}
+                    type="button"
+                    onClick={() => onToggleCompare(record.id)}
+                    disabled={disabled}
+                  >
+                    {selected ? '已加入对比' : '加入对比'}
+                  </button>
+                </div>
+
+                {record.kind === 'daily' ? (
+                  <div className="record-card__details">
+                    <div>
+                      <h4>晨间意图</h4>
+                      <p>{record.dailyReflection.morningIntent || '未填写'}</p>
+                    </div>
+                    <div>
+                      <h4>晚间复盘</h4>
+                      <p>{record.dailyReflection.eveningReview || '未填写'}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="record-card__details">
+                    <div>
+                      <h4>行动计划</h4>
                       <ul className="advice-list">
-                        {record.followUps.map((entry) => (
-                          <li key={entry.id}>{entry.question}</li>
+                        {record.actionPlan.map((step) => (
+                          <li key={`${record.id}-${step.id}`}>
+                            {step.done ? '已完成' : '待完成'} · {step.title}
+                          </li>
                         ))}
                       </ul>
-                    ) : (
-                      <p>暂无追问</p>
-                    )}
+                    </div>
+                    <div>
+                      <h4>追问</h4>
+                      {record.followUps.length > 0 ? (
+                        <ul className="advice-list">
+                          {record.followUps.map((entry) => (
+                            <li key={entry.id}>{entry.question}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>暂无追问</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </article>
-          ))
+                )}
+              </article>
+            )
+          })
         ) : (
           <p className="selection-note">暂时没有匹配的记录。</p>
         )}

@@ -5,9 +5,14 @@ import { TarotCardFigure } from './TarotCardFigure'
 interface DeckStageProps {
   highlightedCardIds: string[]
   isShuffling: boolean
+  shuffleIntensity: 'low' | 'medium' | 'high'
 }
 
-export function DeckStage({ highlightedCardIds, isShuffling }: DeckStageProps) {
+export function DeckStage({
+  highlightedCardIds,
+  isShuffling,
+  shuffleIntensity,
+}: DeckStageProps) {
   return (
     <section className="panel section" id="reading-deck">
       <div className="section__heading">
@@ -22,7 +27,9 @@ export function DeckStage({ highlightedCardIds, isShuffling }: DeckStageProps) {
         抽牌前先让整副牌真实展开。洗牌时整桌会流动，最终被抽中的牌会先在牌桌里亮起，再进入牌阵。
       </p>
 
-      <div className={`deck-stage ${isShuffling ? 'is-shuffling' : ''}`}>
+      <div
+        className={`deck-stage ${isShuffling ? 'is-shuffling' : ''} is-${shuffleIntensity}`}
+      >
         {TAROT_DECK.map((card) => (
           <div
             key={card.id}

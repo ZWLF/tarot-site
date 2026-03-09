@@ -3,7 +3,8 @@ import './App.css'
 import { CardEncyclopedia } from './components/CardEncyclopedia'
 import { DeckStage } from './components/DeckStage'
 import { GuidePanel } from './components/GuidePanel'
-import { RecordCenter } from './components/RecordCenter'
+import { ParticleLayer } from './components/ParticleLayer'
+import { RecordCenter, type RecordDateFilter } from './components/RecordCenter'
 import { SpreadLayoutBoard } from './components/SpreadLayoutBoard'
 import { TarotCardButton } from './components/TarotCardButton'
 import { SPREADS } from './data/spreads'
@@ -11,6 +12,7 @@ import { TOPICS, TOPIC_BY_ID } from './data/topics'
 import type {
   DailyReflection,
   FollowUpRecord,
+  ReadingPreferences,
   ReadingResult,
   TopicId,
 } from './domain/tarot'
@@ -20,7 +22,9 @@ import {
   buildReadingRecordFromReading,
   buildReadingRecordId,
   loadGuideDismissed,
+  loadReadingPreferences,
   loadReadingRecords,
+  saveReadingPreferences,
   saveReadingRecord,
   storeGuideDismissed,
 } from './engine/storage'
@@ -32,6 +36,13 @@ interface AppProps {
 }
 
 type RecordFilter = 'all' | 'saved' | 'auto' | 'daily'
+
+const SHUFFLE_DELAY_BY_SPEED: Record<ReadingPreferences['shuffleSpeed'], number> = {
+  fast: 480,
+  normal: 980,
+  slow: 1450,
+}
+const RE_DRAW_CONFIRM_WINDOW_MS = 30_000
 
 const FOLLOW_UP_SUGGESTIONS = [
   '如果我主动推进一次，会发生什么？',
@@ -57,7 +68,7 @@ const createDefaultTitle = (question: string) =>
 const parseTags = (value: string) =>
   Array.from(
     new Set(
-      value
+        value
         .split(/[，,、\s]+/)
         .map((entry) => entry.trim())
         .filter(Boolean),
@@ -101,7 +112,7 @@ const scrollToSection = (sectionId: string) => {
   })
 }
 
-function App({ shuffleDelayMs = 1200 }: AppProps) {
+function App({ shuffleDelayMs }: AppProps) {
   const [navSection, setNavSection] =
     useState<(typeof NAV_ITEMS)[number]['id']>('daily')
   const [question, setQuestion] = useState('')
@@ -117,13 +128,19 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>([])
   const [recordTitle, setRecordTitle] = useState('')
   const [recordTagsInput, setRecordTagsInput] = useState('')
+  const [drawNotice, setDrawNotice] = useState<string | null>(null)
   const [recordNotice, setRecordNotice] = useState<string | null>(null)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
   const [records, setRecords] = useState(() => loadReadingRecords())
   const [recordFilter, setRecordFilter] = useState<RecordFilter>('all')
   const [recordQuery, setRecordQuery] = useState('')
+  const [recordTagFilter, setRecordTagFilter] = useState('')
+  const [recordDateFilter, setRecordDateFilter] = useState<RecordDateFilter>('all')
+  const [compareSelection, setCompareSelection] = useState<string[]>([])
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null)
   const [guideDismissed, setGuideDismissed] = useState(() => loadGuideDismissed())
+  const [preferences, setPreferences] = useState(() => loadReadingPreferences())
+  const [needsReDrawConfirm, setNeedsReDrawConfirm] = useState(false)
   const [dailyDate] = useState(() => new Date())
   const [dailyReading] = useState(() => createDailyReading(dailyDate))
   const [dailyLabel] = useState(() => formatDailyLabel(dailyDate))
@@ -133,6 +150,7 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   )
   const [dailyMessage, setDailyMessage] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
+  const lastDrawRef = useRef<{ signature: string; timestamp: number } | null>(null)
 
   const selectedTopic = topic ? TOPIC_BY_ID[topic] : null
   const selectedSpread = spreadId
@@ -151,6 +169,8 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     topic !== null &&
     spreadId !== null &&
     !isShuffling
+  const effectiveShuffleDelayMs =
+    shuffleDelayMs ?? SHUFFLE_DELAY_BY_SPEED[preferences.shuffleSpeed]
   const allRevealed =
     reading !== null && revealedPositions.length === reading.cards.length
   const featuredCardIds = Array.from(
@@ -171,6 +191,10 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
   useEffect(() => {
     storeGuideDismissed(guideDismissed)
   }, [guideDismissed])
+
+  useEffect(() => {
+    saveReadingPreferences(preferences)
+  }, [preferences])
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') {
@@ -200,6 +224,11 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
 
     return () => observer.disconnect()
   }, [])
+
+  const resetReDrawGuard = () => {
+    setNeedsReDrawConfirm(false)
+    setDrawNotice(null)
+  }
 
   const persistReadingRecord = (
     saved: boolean,
@@ -248,6 +277,7 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
 
   const handleSelectSpread = (nextSpreadId: string) => {
     const nextSpread = SPREADS.find((entry) => entry.id === nextSpreadId)
+    resetReDrawGuard()
     setSpreadId(nextSpreadId)
     setVariantId(nextSpread?.variants?.[0]?.id)
   }
@@ -256,6 +286,25 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     if (!canDraw || topic === null || spreadId === null) {
       return
     }
+
+    const signature = `${question.trim()}|${topic}|${spreadId}|${variantId ?? 'base'}`
+    const now = Date.now()
+    const previous = lastDrawRef.current
+
+    if (
+      !needsReDrawConfirm &&
+      previous !== null &&
+      previous.signature === signature &&
+      now - previous.timestamp <= RE_DRAW_CONFIRM_WINDOW_MS
+    ) {
+      setNeedsReDrawConfirm(true)
+      setDrawNotice('30 秒内重复抽牌，请再次点击“洗牌并抽牌”确认重抽。')
+      return
+    }
+
+    setNeedsReDrawConfirm(false)
+    setDrawNotice(null)
+    lastDrawRef.current = { signature, timestamp: now }
 
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current)
@@ -269,7 +318,8 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
         variantId,
       },
       {
-        seed: `${Date.now()}-${question.trim()}-${topic}-${spreadId}-${variantId ?? 'base'}`,
+        seed: `${now}-${question.trim()}-${topic}-${spreadId}-${variantId ?? 'base'}`,
+        orientationMode: preferences.orientationMode,
       },
     )
 
@@ -279,13 +329,16 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     setRecordNotice(null)
     setShareMessage(null)
 
-    if (shuffleDelayMs <= 0) {
+    if (effectiveShuffleDelayMs <= 0) {
       applyReading(nextReading)
       return
     }
 
     setIsShuffling(true)
-    timerRef.current = window.setTimeout(() => applyReading(nextReading), shuffleDelayMs)
+    timerRef.current = window.setTimeout(
+      () => applyReading(nextReading),
+      effectiveShuffleDelayMs,
+    )
   }
 
   const handleReveal = (positionKey: string) => {
@@ -434,8 +487,35 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
     }
   }
 
+  const handleToggleCompare = (recordId: string) => {
+    setCompareSelection((current) => {
+      const validCurrent = current.filter((id) =>
+        records.some((record) => record.id === id),
+      )
+
+      if (validCurrent.includes(recordId)) {
+        return validCurrent.filter((id) => id !== recordId)
+      }
+
+      if (validCurrent.length >= 2) {
+        return validCurrent
+      }
+
+      return [...validCurrent, recordId]
+    })
+  }
+
+  const handleClearCompare = () => {
+    setCompareSelection([])
+  }
+
+  const normalizedCompareSelection = compareSelection.filter((id) =>
+    records.some((record) => record.id === id),
+  )
+
   return (
     <div className="app-shell">
+      <ParticleLayer intensity={preferences.shuffleIntensity} />
       <div className="app-shell__mist app-shell__mist--left" />
       <div className="app-shell__mist app-shell__mist--right" />
 
@@ -464,7 +544,7 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
-              aria-label={`跳转到${item.label}`}
+              aria-label={`跳转到 ${item.label}`}
               className={`pill ${navSection === item.id ? 'is-active' : ''}`}
               type="button"
               onClick={() => {
@@ -620,7 +700,10 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
               aria-label="占卜问题"
               placeholder="把问题写得更具体，例如：我接下来该怎样处理这段关系？"
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                resetReDrawGuard()
+                setQuestion(event.target.value)
+              }}
             />
           </label>
 
@@ -632,7 +715,10 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                   aria-label={entry.label}
                   className={`pill ${topic === entry.id ? 'is-active' : ''}`}
                   type="button"
-                  onClick={() => setTopic(entry.id)}
+                  onClick={() => {
+                    resetReDrawGuard()
+                    setTopic(entry.id)
+                  }}
                 >
                   <span>{entry.label}</span>
                   <small>{entry.motto}</small>
@@ -698,7 +784,10 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                     key={entry.id}
                     className={`pill ${variantId === entry.id ? 'is-active' : ''}`}
                     type="button"
-                    onClick={() => setVariantId(entry.id)}
+                    onClick={() => {
+                      resetReDrawGuard()
+                      setVariantId(entry.id)
+                    }}
                   >
                     {entry.title}
                   </button>
@@ -718,6 +807,58 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                 {selectedVariant ? ` · ${selectedVariant.title}` : ''}
               </p>
             </div>
+
+            <div className="draw-preferences">
+              <label className="inline-input">
+                <span>洗牌速度</span>
+                <select
+                  value={preferences.shuffleSpeed}
+                  onChange={(event) =>
+                    setPreferences((current) => ({
+                      ...current,
+                      shuffleSpeed: event.target.value as ReadingPreferences['shuffleSpeed'],
+                    }))
+                  }
+                >
+                  <option value="fast">快</option>
+                  <option value="normal">中</option>
+                  <option value="slow">慢</option>
+                </select>
+              </label>
+              <label className="inline-input">
+                <span>洗牌强度</span>
+                <select
+                  value={preferences.shuffleIntensity}
+                  onChange={(event) =>
+                    setPreferences((current) => ({
+                      ...current,
+                      shuffleIntensity:
+                        event.target.value as ReadingPreferences['shuffleIntensity'],
+                    }))
+                  }
+                >
+                  <option value="low">低</option>
+                  <option value="medium">中</option>
+                  <option value="high">高</option>
+                </select>
+              </label>
+              <label className="inline-input">
+                <span>翻牌模式</span>
+                <select
+                  value={preferences.orientationMode}
+                  onChange={(event) =>
+                    setPreferences((current) => ({
+                      ...current,
+                      orientationMode: event.target.value as ReadingPreferences['orientationMode'],
+                    }))
+                  }
+                >
+                  <option value="random">随机正逆位</option>
+                  <option value="up-only">仅正位</option>
+                </select>
+              </label>
+            </div>
+
             <div className="draw-summary__actions">
               <button
                 className="primary-button"
@@ -725,13 +866,21 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
                 type="button"
                 onClick={handleDraw}
               >
-                洗牌并抽牌
+                {needsReDrawConfirm ? '再次点击确认重抽' : '洗牌并抽牌'}
               </button>
             </div>
+            {drawNotice ? <p className="selection-note">{drawNotice}</p> : null}
+            <p className="selection-note">
+              重抽规则：同一问题在 30 秒内重复抽牌时，会先提示确认，避免无意识反复重抽。
+            </p>
           </div>
         </section>
 
-        <DeckStage highlightedCardIds={deckHighlights} isShuffling={isShuffling} />
+        <DeckStage
+          highlightedCardIds={deckHighlights}
+          isShuffling={isShuffling}
+          shuffleIntensity={preferences.shuffleIntensity}
+        />
 
         <section className="panel section" id="result">
           <div className="section__heading">
@@ -908,7 +1057,14 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
           filter={recordFilter}
           onFilterChange={setRecordFilter}
           onQueryChange={setRecordQuery}
+          onTagFilterChange={setRecordTagFilter}
+          onDateFilterChange={setRecordDateFilter}
+          onToggleCompare={handleToggleCompare}
+          onClearCompare={handleClearCompare}
           query={recordQuery}
+          tagFilter={recordTagFilter}
+          dateFilter={recordDateFilter}
+          compareSelection={normalizedCompareSelection}
           records={records}
         />
 
@@ -921,3 +1077,4 @@ function App({ shuffleDelayMs = 1200 }: AppProps) {
 }
 
 export default App
+

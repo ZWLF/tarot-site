@@ -9,8 +9,16 @@
   padding: 24px;
 }
 
+.particle-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 .app-shell__mist {
   position: fixed;
+  z-index: 0;
   width: 30rem;
   height: 30rem;
   border-radius: 50%;
@@ -548,6 +556,12 @@
 .draw-summary {
   display: grid;
   gap: 12px;
+}
+
+.draw-preferences {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
 .draw-summary__row {
@@ -1216,6 +1230,18 @@
   animation: deck-shuffle 1.1s ease-in-out infinite;
 }
 
+.deck-stage.is-low.is-shuffling .deck-stage__card {
+  animation-duration: 1.35s;
+}
+
+.deck-stage.is-medium.is-shuffling .deck-stage__card {
+  animation-duration: 1.05s;
+}
+
+.deck-stage.is-high.is-shuffling .deck-stage__card {
+  animation-duration: 0.8s;
+}
+
 .deck-stage.is-shuffling .deck-stage__card:nth-child(3n) {
   animation-delay: -0.12s;
 }
@@ -1379,6 +1405,34 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+.tarot-card-figure__image-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.95rem;
+  overflow: hidden;
+}
+
+.tarot-card-figure__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  transition: transform 240ms ease;
+}
+
+.tarot-card-figure__image.is-reversed {
+  transform: rotate(180deg);
+}
+
+.tarot-card-figure:hover .tarot-card-figure__image {
+  transform: scale(1.02);
+}
+
+.tarot-card-figure:hover .tarot-card-figure__image.is-reversed {
+  transform: rotate(180deg) scale(1.02);
+}
+
 .tarot-card-figure__frame--sun {
   background:
     radial-gradient(circle at 50% 40%, rgba(211, 165, 77, 0.2), transparent 45%),
@@ -1501,6 +1555,13 @@
   font-size: 1.3rem;
 }
 
+.tarot-card-figure__mini-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
 .tarot-card-figure__mini-footer {
   display: grid;
   gap: 4px;
@@ -1584,6 +1645,38 @@
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
+.record-controls {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin-bottom: 16px;
+}
+
+.compare-toolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.compare-toolbar .selection-note {
+  margin: 0;
+}
+
+.compare-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  margin-bottom: 16px;
+}
+
 .record-card {
   position: relative;
   z-index: 1;
@@ -1613,9 +1706,30 @@
   color: var(--text-main);
 }
 
+.record-card__thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr));
+  gap: 6px;
+}
+
+.record-card__thumbs img {
+  width: 100%;
+  aspect-ratio: 5 / 8;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(238, 215, 170, 0.18);
+  background: rgba(246, 234, 208, 0.08);
+}
+
 .record-card__details {
   display: grid;
   gap: 12px;
+}
+
+.record-card__actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .follow-up-thread,
