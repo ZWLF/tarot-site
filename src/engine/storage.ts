@@ -2,6 +2,7 @@ import type { LegacySavedReadingRecord, SavedReadingEntry } from '../domain/hist
 import type {
   DailyReflection,
   FollowUpRecord,
+  ReadingPreferences,
   ReadingRecordV2,
   ReadingResult,
   SavedActionPlanStep,
@@ -10,9 +11,16 @@ import { TOPIC_BY_ID } from '../data/topics'
 
 const RECORDS_KEY = 'ukiyo-tarot.records-v2'
 const GUIDE_DISMISSED_KEY = 'ukiyo-tarot.guide-dismissed'
+const PREFERENCES_KEY = 'ukiyo-tarot.reading-preferences'
 const LEGACY_SAVED_KEY = 'ukiyo-tarot.saved-readings'
 const LEGACY_HISTORY_KEY = 'ukiyo-tarot:reading-history'
 const MAX_RECORDS = 120
+
+const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
+  shuffleSpeed: 'normal',
+  shuffleIntensity: 'medium',
+  orientationMode: 'random',
+}
 
 const canUseStorage = () =>
   typeof window !== 'undefined' && window.localStorage !== undefined
@@ -391,4 +399,32 @@ export const loadGuideDismissed = () => readJson<boolean>(GUIDE_DISMISSED_KEY, f
 
 export const storeGuideDismissed = (value: boolean) => {
   writeJson(GUIDE_DISMISSED_KEY, value)
+}
+
+const sanitizePreferences = (
+  value: Partial<ReadingPreferences> | null | undefined,
+): ReadingPreferences => ({
+  shuffleSpeed:
+    value?.shuffleSpeed === 'fast' ||
+    value?.shuffleSpeed === 'normal' ||
+    value?.shuffleSpeed === 'slow'
+      ? value.shuffleSpeed
+      : DEFAULT_READING_PREFERENCES.shuffleSpeed,
+  shuffleIntensity:
+    value?.shuffleIntensity === 'low' ||
+    value?.shuffleIntensity === 'medium' ||
+    value?.shuffleIntensity === 'high'
+      ? value.shuffleIntensity
+      : DEFAULT_READING_PREFERENCES.shuffleIntensity,
+  orientationMode:
+    value?.orientationMode === 'up-only' || value?.orientationMode === 'random'
+      ? value.orientationMode
+      : DEFAULT_READING_PREFERENCES.orientationMode,
+})
+
+export const loadReadingPreferences = () =>
+  sanitizePreferences(readJson<Partial<ReadingPreferences>>(PREFERENCES_KEY, {}))
+
+export const saveReadingPreferences = (value: ReadingPreferences) => {
+  writeJson(PREFERENCES_KEY, sanitizePreferences(value))
 }

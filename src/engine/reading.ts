@@ -6,6 +6,7 @@ import type {
   ActionPlanStep,
   DrawPool,
   DrawnCard,
+  OrientationMode,
   ReadingCardView,
   ReadingInput,
   ReadingResult,
@@ -19,6 +20,7 @@ import { createSeededRandom } from './random'
 interface ReadingOptions {
   seed?: string | number
   random?: () => number
+  orientationMode?: OrientationMode
 }
 
 type MinorSuit = Exclude<Suit, null>
@@ -219,6 +221,7 @@ const filterPool = (pool: DrawPool | undefined, cards = TAROT_DECK) => {
 export const drawCards = (
   spread: ResolvedSpreadDefinition,
   random: () => number = Math.random,
+  orientationMode: OrientationMode = 'random',
 ): DrawnCard[] => {
   const availableCards = [...TAROT_DECK]
 
@@ -233,7 +236,7 @@ export const drawCards = (
 
     return {
       cardId: card.id,
-      orientation: random() >= 0.5 ? 'up' : 'down',
+      orientation: orientationMode === 'up-only' ? 'up' : random() >= 0.5 ? 'up' : 'down',
       positionKey: position.key,
     }
   })
@@ -247,7 +250,9 @@ export const createReading = (
   const random =
     options.random ??
     (options.seed !== undefined ? createSeededRandom(options.seed) : Math.random)
-  const cards = drawCards(spread, random).map((drawn) => createCardView(spread, drawn))
+  const cards = drawCards(spread, random, options.orientationMode).map((drawn) =>
+    createCardView(spread, drawn),
+  )
 
   return {
     input,

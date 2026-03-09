@@ -111,4 +111,18 @@ describe('tarot reading engine', () => {
       ]),
     )
   })
+
+  it('supports up-only orientation mode', () => {
+    const reading = createReading(
+      {
+        question: '本次只看正位信息',
+        topic: 'general',
+        spreadId: 'celtic-cross',
+      },
+      { seed: 'up-only-test', orientationMode: 'up-only' },
+    )
+
+    expect(reading.cards.length).toBeGreaterThan(0)
+    expect(reading.cards.every((entry) => entry.drawn.orientation === 'up')).toBe(true)
+  })
 })

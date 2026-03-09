@@ -1,87 +1,120 @@
+import { useState } from 'react'
+
 interface GuidePanelProps {
   dismissed: boolean
   onDismiss: () => void
   onRestore: () => void
 }
 
-const TERMS = [
+const STEPS = [
   {
-    title: '牌阵',
-    description: '牌阵决定你从什么角度读牌。单张适合快问快答，三张更适合看变化和结构。',
+    title: '先写一个具体问题',
+    detail:
+      '尽量避免泛问。把问题写成“我接下来该如何处理 X”，解读会更可执行。',
   },
   {
-    title: '正位',
-    description: '正位通常表示能量更直接、更顺畅，事情更容易自然展开。',
+    title: '选择主题与牌阵',
+    detail:
+      '主题决定阅读语境，牌阵决定信息结构。简单问题用 3 张，复杂问题用深度牌阵。',
   },
   {
-    title: '逆位',
-    description: '逆位不等于坏，它更像提醒：这里有卡点、延迟、回收或需要调整的地方。',
+    title: '先揭牌再看行动计划',
+    detail:
+      '建议先完整揭牌看全局，再根据行动计划逐步勾选执行，避免只盯单张牌。',
   },
   {
-    title: '主题',
-    description: '主题会改变解读的焦点。同一张牌放在感情、事业、自我成长里，关注点会不同。',
+    title: '保存与复盘',
+    detail:
+      '把记录写入记录中心，并在每日一张里补晨间意图和晚间复盘，形成可追踪闭环。',
   },
 ]
 
-export function GuidePanel({
-  dismissed,
-  onDismiss,
-  onRestore,
-}: GuidePanelProps) {
+export function GuidePanel({ dismissed, onDismiss, onRestore }: GuidePanelProps) {
+  const [stepIndex, setStepIndex] = useState(0)
+  const currentStep = STEPS[stepIndex]
+  const isLast = stepIndex === STEPS.length - 1
+
+  const handleDismiss = () => {
+    setStepIndex(0)
+    onDismiss()
+  }
+
+  const handleRestore = () => {
+    setStepIndex(0)
+    onRestore()
+  }
+
   return (
     <section className="panel section guide-panel">
       <div className="section__heading">
         <div>
-          <p className="eyebrow">First Time</p>
-          <h2>新手引导与术语解释</h2>
+          <p className="eyebrow">Onboarding</p>
+          <h2>新手引导</h2>
         </div>
         {dismissed ? (
-          <button className="ghost-button" type="button" onClick={onRestore}>
+          <button className="ghost-button" type="button" onClick={handleRestore}>
             重新查看
           </button>
         ) : (
-          <button className="ghost-button" type="button" onClick={onDismiss}>
-            我知道了
+          <button className="ghost-button" type="button" onClick={handleDismiss}>
+            关闭引导
           </button>
         )}
       </div>
 
-      {!dismissed ? (
+      {dismissed ? (
+        <p className="selection-note">
+          引导已收起。你可以随时重新展开，快速回顾提问、选阵、抽牌与复盘的顺序。
+        </p>
+      ) : (
         <>
-          <div className="guide-steps">
-            <article className="result-panel">
-              <p className="eyebrow">01</p>
-              <h3>先写一个具体问题</h3>
-              <p>比起“我接下来会怎样”，更推荐写成“我该如何处理这段关系/这个机会/这次转变”。</p>
-            </article>
-
-            <article className="result-panel">
-              <p className="eyebrow">02</p>
-              <h3>再选主题和牌阵</h3>
-              <p>主题负责聚焦语境，牌阵负责组织信息。问题越清楚，结果越能给你行动方向。</p>
-            </article>
-
-            <article className="result-panel">
-              <p className="eyebrow">03</p>
-              <h3>翻完牌后继续延伸</h3>
-              <p>你可以继续查看单张牌百科、生成行动计划、追问下一步，并把结果存进历史记录。</p>
-            </article>
+          <div className="guide-progress">
+            <span className="section__count">
+              第 {stepIndex + 1} / {STEPS.length} 步
+            </span>
+            <div
+              className="guide-progress__bar"
+              role="progressbar"
+              aria-valuemin={1}
+              aria-valuemax={STEPS.length}
+              aria-valuenow={stepIndex + 1}
+            >
+              <span style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }} />
+            </div>
           </div>
 
-          <div className="glossary-grid">
-            {TERMS.map((term) => (
-              <article key={term.title} className="result-panel">
-                <p className="eyebrow">术语</p>
-                <h3>{term.title}</h3>
-                <p>{term.description}</p>
-              </article>
-            ))}
+          <article className="result-panel">
+            <p className="eyebrow">Step {String(stepIndex + 1).padStart(2, '0')}</p>
+            <h3>{currentStep.title}</h3>
+            <p>{currentStep.detail}</p>
+          </article>
+
+          <div className="draw-summary__actions">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
+              disabled={stepIndex === 0}
+            >
+              上一步
+            </button>
+            {!isLast ? (
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() =>
+                  setStepIndex((current) => Math.min(STEPS.length - 1, current + 1))
+                }
+              >
+                下一步
+              </button>
+            ) : (
+              <button className="primary-button" type="button" onClick={handleDismiss}>
+                完成引导
+              </button>
+            )}
           </div>
         </>
-      ) : (
-        <p className="selection-note">
-          已收起新手引导。需要时可以随时展开，再看牌阵、正逆位和主题的区别。
-        </p>
       )}
     </section>
   )

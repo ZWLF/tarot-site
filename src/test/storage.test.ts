@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+﻿import { beforeEach, describe, expect, it } from 'vitest'
 import { createReading } from '../engine/reading'
 import {
   buildDailyRecord,
   buildReadingRecordFromReading,
+  loadReadingPreferences,
   loadReadingRecords,
+  saveReadingPreferences,
   saveReadingRecord,
 } from '../engine/storage'
 
@@ -145,4 +147,29 @@ describe('reading storage', () => {
     expect(first.id).toBe(second.id)
     expect(second.dailyReflection.eveningReview).toContain('帮助')
   })
+  it('stores and reads drawing preferences with safe defaults', () => {
+    saveReadingPreferences({
+      shuffleSpeed: 'slow',
+      shuffleIntensity: 'high',
+      orientationMode: 'up-only',
+    })
+
+    expect(loadReadingPreferences()).toEqual({
+      shuffleSpeed: 'slow',
+      shuffleIntensity: 'high',
+      orientationMode: 'up-only',
+    })
+
+    window.localStorage.setItem(
+      'ukiyo-tarot.reading-preferences',
+      JSON.stringify({ shuffleSpeed: 'bad-value' }),
+    )
+
+    expect(loadReadingPreferences()).toEqual({
+      shuffleSpeed: 'normal',
+      shuffleIntensity: 'medium',
+      orientationMode: 'random',
+    })
+  })
 })
+

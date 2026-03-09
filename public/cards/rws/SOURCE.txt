@@ -1,0 +1,7 @@
+Rider-Waite-Smith tarot deck images (1909), public domain.
+Downloaded from Wikimedia Commons file pages in:
+https://commons.wikimedia.org/wiki/Category:Rider-Waite_tarot_deck
+
+Local naming follows the internal card id convention:
+  /cards/rws/{card-id}.jpg
+

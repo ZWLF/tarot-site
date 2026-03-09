@@ -8,6 +8,7 @@ export type TopicId =
 export type Arcana = 'major' | 'minor'
 export type Suit = 'wands' | 'cups' | 'swords' | 'pentacles' | null
 export type Orientation = 'up' | 'down'
+export type OrientationMode = 'random' | 'up-only'
 export type DrawPool = 'any' | 'major' | 'wands' | 'cups' | 'swords' | 'pentacles'
 export type LayoutId =
   | 'single'
@@ -103,6 +104,14 @@ export interface CardArtManifest {
   seal: string
   background: 'dawn' | 'ember' | 'mist' | 'night'
   glyphs: string[]
+  imageUrl?: string
+  imageCredit?: string
+}
+
+export interface ReadingPreferences {
+  shuffleSpeed: 'fast' | 'normal' | 'slow'
+  shuffleIntensity: 'low' | 'medium' | 'high'
+  orientationMode: OrientationMode
 }
 
 export interface ReadingCardView {

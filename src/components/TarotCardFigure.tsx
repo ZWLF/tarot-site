@@ -84,7 +84,18 @@ export function TarotCardFigure({
             <span>{art.seal}</span>
             <span>{card.arcana === 'major' ? `M${card.number}` : art.motif}</span>
           </div>
-          <div className="tarot-card-figure__mini-mark">{art.motif}</div>
+          <div className="tarot-card-figure__mini-mark">
+            {art.imageUrl ? (
+              <img
+                className="tarot-card-figure__mini-image"
+                src={art.imageUrl}
+                alt={`${card.nameZh}牌面`}
+                loading="lazy"
+              />
+            ) : (
+              art.motif
+            )}
+          </div>
           <div className="tarot-card-figure__mini-footer">
             <strong>{card.nameZh}</strong>
             <small>{label ?? card.nameEn}</small>
@@ -115,9 +126,24 @@ export function TarotCardFigure({
           </div>
 
           <div className={`tarot-card-figure__frame tarot-card-figure__frame--${art.frame}`}>
-            <div className="tarot-card-figure__motif">{art.motif}</div>
-            <div className="tarot-card-figure__constellation">{art.constellation}</div>
-            {renderPips(card)}
+            {art.imageUrl ? (
+              <div className="tarot-card-figure__image-wrap">
+                <img
+                  className={`tarot-card-figure__image ${
+                    orientation === 'down' ? 'is-reversed' : ''
+                  }`}
+                  src={art.imageUrl}
+                  alt={`${card.nameZh}牌面`}
+                  loading="lazy"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="tarot-card-figure__motif">{art.motif}</div>
+                <div className="tarot-card-figure__constellation">{art.constellation}</div>
+                {renderPips(card)}
+              </>
+            )}
             <div className="tarot-card-figure__glyphs" aria-hidden="true">
               {art.glyphs.map((glyph, index) => (
                 <span key={`${card.id}-${glyph}-${index}`}>{glyph}</span>

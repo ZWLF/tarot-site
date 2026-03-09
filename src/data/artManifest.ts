@@ -1,4 +1,5 @@
 import type { CardArtManifest } from '../domain/tarot'
+import { CARD_IMAGE_BY_ID, CARD_IMAGE_CREDIT } from './cardImages'
 import { TAROT_DECK } from './cards'
 
 const MAJOR_MOTIFS: Record<string, string> = {
@@ -99,6 +100,8 @@ export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEnt
                   ? 'night'
                   : 'ember',
           glyphs,
+          imageUrl: CARD_IMAGE_BY_ID[card.id],
+          imageCredit: CARD_IMAGE_CREDIT,
         } satisfies CardArtManifest,
       ]
     }
@@ -117,6 +120,8 @@ export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEnt
         seal: `${SUIT_SEALS[card.suit]} ${card.number}`,
         background: SUIT_BACKGROUNDS[card.suit],
         glyphs,
+        imageUrl: CARD_IMAGE_BY_ID[card.id],
+        imageCredit: CARD_IMAGE_CREDIT,
       } satisfies CardArtManifest,
     ]
   }),
