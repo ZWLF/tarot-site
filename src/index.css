@@ -2,19 +2,23 @@
   --font-body:
     'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
   --font-display:
-    'Baskerville Old Face', 'Times New Roman', 'Songti SC', serif;
-  --bg-night: #14212c;
-  --accent-gold: #d3a54d;
-  --text-main: #f6ead0;
-  --text-soft: rgba(246, 234, 208, 0.76);
+    'Cormorant Garamond', 'Baskerville Old Face', 'Times New Roman', 'Songti SC', serif;
+  --bg-night: #0b0c10;
+  --bg-panel: rgba(18, 20, 25, 0.92);
+  --surface-soft: rgba(255, 248, 235, 0.03);
+  --surface-strong: rgba(255, 248, 235, 0.05);
+  --accent-gold: #b89b72;
+  --border-soft: rgba(255, 248, 235, 0.08);
+  --border-strong: rgba(184, 155, 114, 0.32);
+  --text-main: #f1e6d3;
+  --text-soft: rgba(241, 230, 211, 0.72);
+  --text-faint: rgba(241, 230, 211, 0.46);
   font-family: var(--font-body);
-  line-height: 1.5;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
   font-weight: 400;
   color: var(--text-main);
-  background:
-    radial-gradient(circle at top, rgba(45, 85, 122, 0.32), transparent 34%),
-    radial-gradient(circle at 20% 20%, rgba(185, 46, 65, 0.18), transparent 30%),
-    linear-gradient(180deg, #09131b, #132332 44%, #0d1a25 100%);
+  background: var(--bg-night);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -27,7 +31,7 @@
 
 html {
   min-width: 320px;
-  background: #09131b;
+  background: var(--bg-night);
   scroll-behavior: smooth;
 }
 
@@ -35,6 +39,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg-night);
 }
 
 body,
@@ -43,6 +48,7 @@ textarea,
 input,
 select {
   font-family: var(--font-body);
+  letter-spacing: 0.04em;
 }
 
 h1,
@@ -50,6 +56,7 @@ h2,
 h3,
 .eyebrow {
   font-family: var(--font-display);
+  letter-spacing: 0.03em;
 }
 
 button {

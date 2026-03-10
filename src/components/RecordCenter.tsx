@@ -1,5 +1,6 @@
 import type { ReadingRecordV2 } from '../domain/tarot'
 import { CARD_IMAGE_BY_ID } from '../data/cardImages'
+import { RevealText } from './RevealText'
 
 export type RecordDateFilter = 'all' | '7d' | '30d'
 
@@ -97,7 +98,7 @@ export function RecordCenter({
       <div className="section__heading">
         <div>
           <p className="eyebrow">Record Center</p>
-          <h2>记录中心</h2>
+          <RevealText as="h2" text="记录中心" />
         </div>
         <span className="section__count">{records.length} 条</span>
       </div>

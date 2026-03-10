@@ -1,5 +1,6 @@
 import { CARD_ART_MANIFEST } from '../data/artManifest'
 import { TAROT_DECK } from '../data/cards'
+import { RevealText } from './RevealText'
 import { TarotCardFigure } from './TarotCardFigure'
 
 interface DeckStageProps {
@@ -18,7 +19,7 @@ export function DeckStage({
       <div className="section__heading">
         <div>
           <p className="eyebrow">Deck Stage</p>
-          <h2>浮世牌桌</h2>
+          <RevealText as="h2" text="浮世牌桌" />
         </div>
         <span className="section__count">完整 78 张牌面</span>
       </div>

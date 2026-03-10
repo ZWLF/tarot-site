@@ -2,6 +2,7 @@ import { useDeferredValue, useState } from 'react'
 import { TAROT_DECK } from '../data/cards'
 import { TOPIC_BY_ID } from '../data/topics'
 import type { TarotCard, TopicId } from '../domain/tarot'
+import { RevealText } from './RevealText'
 
 interface CardEncyclopediaProps {
   featuredCardIds: string[]
@@ -99,7 +100,7 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
       <div className="section__heading">
         <div>
           <p className="eyebrow">Step 09</p>
-          <h2>78 张牌卡百科</h2>
+          <RevealText as="h2" text="78 张牌卡百科" />
         </div>
         <span className="section__count">{scope === 'drawn' ? '本次抽到的牌' : '完整牌库'}</span>
       </div>
@@ -173,7 +174,7 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
                     ? 'Major Arcana'
                     : `${selectedCard.nameEn.split(' of ')[1] ?? 'Minor Arcana'}`}
                 </p>
-                <h3>{selectedCard.nameZh}</h3>
+                <RevealText as="h3" text={selectedCard.nameZh} />
                 <p>{selectedCard.nameEn}</p>
               </div>
 
