@@ -8,6 +8,17 @@ describe('App tarot flow', () => {
     window.localStorage.clear()
   })
 
+  it('renders the refreshed shell without legacy atmosphere layers', () => {
+    const { container } = render(<App shuffleDelayMs={0} />)
+
+    expect(
+      screen.getByRole('heading', { name: '把抽到的 78 张牌，真正铺上桌面。' }),
+    ).toBeInTheDocument()
+    expect(container.querySelector('.particle-layer')).not.toBeInTheDocument()
+    expect(container.querySelector('.app-shell__mist')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(78)
+  })
+
   it(
     'shows all 78 cards on the deck stage and completes a holy triangle reading',
     async () => {

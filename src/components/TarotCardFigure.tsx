@@ -64,8 +64,6 @@ export function TarotCardFigure({
     'tarot-card-figure',
     compact ? 'is-compact' : '',
     revealed ? 'is-revealed' : '',
-    `is-${art.background}`,
-    `is-${art.accentToken}`,
     className,
   ]
     .filter(Boolean)
@@ -119,7 +117,6 @@ export function TarotCardFigure({
         </div>
 
         <div className="tarot-card-figure__face tarot-card-figure__face--front">
-          <div className="tarot-card-figure__halo" />
           <div className="tarot-card-figure__header">
             <span>{art.seal}</span>
             <span>{card.arcana === 'major' ? 'Major' : 'Minor'}</span>

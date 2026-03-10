@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RevealText } from './RevealText'
 
 interface GuidePanelProps {
   dismissed: boolean
@@ -49,7 +50,7 @@ export function GuidePanel({ dismissed, onDismiss, onRestore }: GuidePanelProps)
       <div className="section__heading">
         <div>
           <p className="eyebrow">Onboarding</p>
-          <h2>新手引导</h2>
+          <RevealText as="h2" text="新手引导" />
         </div>
         {dismissed ? (
           <button className="ghost-button" type="button" onClick={handleRestore}>
@@ -85,7 +86,7 @@ export function GuidePanel({ dismissed, onDismiss, onRestore }: GuidePanelProps)
 
           <article className="result-panel">
             <p className="eyebrow">Step {String(stepIndex + 1).padStart(2, '0')}</p>
-            <h3>{currentStep.title}</h3>
+            <RevealText as="h3" text={currentStep.title} />
             <p>{currentStep.detail}</p>
           </article>
 

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
+import { BlurText } from './components/BlurText'
 import { CardEncyclopedia } from './components/CardEncyclopedia'
 import { DeckStage } from './components/DeckStage'
 import { GuidePanel } from './components/GuidePanel'
-import { ParticleLayer } from './components/ParticleLayer'
 import { RecordCenter, type RecordDateFilter } from './components/RecordCenter'
+import { RevealText } from './components/RevealText'
 import { SpreadLayoutBoard } from './components/SpreadLayoutBoard'
 import { TarotCardButton } from './components/TarotCardButton'
 import { SPREADS } from './data/spreads'
@@ -515,10 +516,6 @@ function App({ shuffleDelayMs }: AppProps) {
 
   return (
     <div className="app-shell">
-      <ParticleLayer intensity={preferences.shuffleIntensity} />
-      <div className="app-shell__mist app-shell__mist--left" />
-      <div className="app-shell__mist app-shell__mist--right" />
-
       <header className="hero panel">
         <div className="hero__seal">
           <span className="hero__seal-mark">浮世</span>
@@ -526,7 +523,11 @@ function App({ shuffleDelayMs }: AppProps) {
         </div>
         <div className="hero__copy">
           <p className="eyebrow">Tarot Salon</p>
-          <h1>把抽到的 78 张牌，真正铺上桌面。</h1>
+          <RevealText
+            as="h1"
+            className="hero__title"
+            text="把抽到的 78 张牌，真正铺上桌面。"
+          />
           <p className="hero__lede">
             浮世塔罗把每日一张、深度牌阵、记录归档、追问与分享海报接成一条完整的解读动线。
           </p>
@@ -561,7 +562,7 @@ function App({ shuffleDelayMs }: AppProps) {
           <div className="section__heading">
             <div>
               <p className="eyebrow">Daily Card</p>
-              <h2>每日一张与复盘</h2>
+              <RevealText as="h2" text="每日一张与复盘" />
             </div>
             <span className="section__count">{dailyLabel}</span>
           </div>
@@ -687,7 +688,7 @@ function App({ shuffleDelayMs }: AppProps) {
           <div className="section__heading">
             <div>
               <p className="eyebrow">Reading Studio</p>
-              <h2>问题、主题与牌阵</h2>
+              <RevealText as="h2" text="问题、主题与牌阵" />
             </div>
             <span className="section__count">
               {selectedSpread ? `${selectedSpread.cardCount} 张牌` : '先选好问题'}
@@ -775,7 +776,7 @@ function App({ shuffleDelayMs }: AppProps) {
               <div className="section__heading section__heading--compact">
                 <div>
                   <p className="eyebrow">Spread Mode</p>
-                  <h2>{selectedSpread.title}模式</h2>
+                  <RevealText as="h2" text={`${selectedSpread.title}模式`} />
                 </div>
               </div>
               <div className="utility-toggle utility-toggle--wrap">
@@ -886,7 +887,7 @@ function App({ shuffleDelayMs }: AppProps) {
           <div className="section__heading">
             <div>
               <p className="eyebrow">Result</p>
-              <h2>{reading ? '结果解读' : '等待抽牌'}</h2>
+              <RevealText as="h2" text={reading ? '结果解读' : '等待抽牌'} />
             </div>
             {reading ? <span className="section__count">{reading.tone}</span> : null}
           </div>
@@ -931,13 +932,13 @@ function App({ shuffleDelayMs }: AppProps) {
               <div className="result-grid">
                 <article className="result-panel">
                   <p className="eyebrow">Summary</p>
-                  <h3>整体结论</h3>
-                  <p>{reading.summary}</p>
+                  <RevealText as="h3" text="整体结论" />
+                  <BlurText className="result-panel__summary" text={reading.summary} />
                 </article>
 
                 <article className="result-panel">
                   <p className="eyebrow">Advice</p>
-                  <h3>行动建议</h3>
+                  <RevealText as="h3" text="行动建议" />
                   <ul className="advice-list">
                     {reading.advice.map((item) => (
                       <li key={item}>{item}</li>
@@ -947,7 +948,7 @@ function App({ shuffleDelayMs }: AppProps) {
 
                 <article className="result-panel result-panel--wide">
                   <p className="eyebrow">Action Plan</p>
-                  <h3>落地动作</h3>
+                  <RevealText as="h3" text="落地动作" />
                   <div className="action-plan-list">
                     {reading.actionPlan.map((step) => {
                       const checked = actionPlanDoneIds.includes(step.id)
@@ -974,7 +975,7 @@ function App({ shuffleDelayMs }: AppProps) {
 
                 <article className="result-panel result-panel--wide">
                   <p className="eyebrow">Follow Up</p>
-                  <h3>追问延伸</h3>
+                  <RevealText as="h3" text="追问延伸" />
                   <div className="suggestion-row">
                     {FOLLOW_UP_SUGGESTIONS.map((item) => (
                       <button
@@ -1014,7 +1015,7 @@ function App({ shuffleDelayMs }: AppProps) {
 
                 <article className="result-panel result-panel--wide">
                   <p className="eyebrow">Record</p>
-                  <h3>保存到记录中心</h3>
+                  <RevealText as="h3" text="保存到记录中心" />
                   <div className="save-history-layout">
                     <label className="inline-input">
                       <span>记录标题</span>
