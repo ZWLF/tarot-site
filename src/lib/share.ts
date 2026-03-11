@@ -14,6 +14,13 @@ interface PosterPayload {
   cards: PosterCard[]
 }
 
+const SVG_FONT_TOKEN_CSS = `
+  :root {
+    --font-display: 'Baskerville Old Face', 'Times New Roman', 'Songti SC', serif;
+    --font-accent: 'Cormorant Garamond', 'Baskerville Old Face', 'Times New Roman', serif;
+  }
+`
+
 const escapeXml = (value: string) =>
   value
     .replaceAll('&', '&amp;')
@@ -29,20 +36,24 @@ export const buildReadingShareText = (
   const cardsLine = reading.cards
     .map(
       (entry) =>
-        `${entry.positionLabel}：${entry.card.nameZh}${entry.drawn.orientation === 'up' ? '（正位）' : '（逆位）'}`,
+        `${entry.positionLabel}: ${entry.card.nameZh}${
+          entry.drawn.orientation === 'up'
+            ? ' (正位)'
+            : ' (逆位)'
+        }`,
     )
     .join(' / ')
 
   return [
-    `浮世占｜${reading.input.question}`,
-    `主题：${topicLabel}`,
-    `牌阵：${reading.spread.title}`,
+    `浮世占 / ${reading.input.question}`,
+    `主题: ${topicLabel}`,
+    `牌阵: ${reading.spread.title}`,
     reading.spread.activeVariantTitle
-      ? `模式：${reading.spread.activeVariantTitle}`
+      ? `模式: ${reading.spread.activeVariantTitle}`
       : null,
-    `牌面：${cardsLine}`,
-    `结论：${reading.summary}`,
-    `建议：${reading.advice.join('；')}`,
+    `牌面: ${cardsLine}`,
+    `结论: ${reading.summary}`,
+    `建议: ${reading.advice.join('；')}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -52,17 +63,21 @@ export const buildRecordShareText = (record: ReadingRecordV2): string => {
   const cardsLine = record.cards
     .map(
       (card) =>
-        `${card.positionLabel}：${card.cardName}${card.orientation === 'up' ? '（正位）' : '（逆位）'}`,
+        `${card.positionLabel}: ${card.cardName}${
+          card.orientation === 'up'
+            ? ' (正位)'
+            : ' (逆位)'
+        }`,
     )
     .join(' / ')
 
   return [
-    `浮世占｜${record.title || record.question}`,
-    `主题：${record.topicLabel}`,
-    `牌阵：${record.spreadTitle}`,
-    record.variantTitle ? `模式：${record.variantTitle}` : null,
-    `牌面：${cardsLine}`,
-    `结论：${record.summary}`,
+    `浮世占 / ${record.title || record.question}`,
+    `主题: ${record.topicLabel}`,
+    `牌阵: ${record.spreadTitle}`,
+    record.variantTitle ? `模式: ${record.variantTitle}` : null,
+    `牌面: ${cardsLine}`,
+    `结论: ${record.summary}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -80,9 +95,9 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
       return `
         <g transform="translate(${x} ${y})">
           <rect width="284" height="58" rx="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,232,184,0.16)" />
-          <text x="20" y="23" fill="#e4c98a" font-size="14" font-family="'Noto Serif SC', serif">${escapeXml(card.label)}</text>
-          <text x="20" y="42" fill="#f7f0de" font-size="20" font-family="'Noto Serif SC', serif">${escapeXml(card.cardName)}</text>
-          <text x="242" y="37" fill="#cfd7e8" font-size="12" text-anchor="end" font-family="'Noto Serif SC', serif">${card.orientation === 'up' ? '正位' : '逆位'}</text>
+          <text x="20" y="23" fill="#e4c98a" font-size="14" font-family="var(--font-accent)">${escapeXml(card.label)}</text>
+          <text x="20" y="42" fill="#f7f0de" font-size="20" font-family="var(--font-display)">${escapeXml(card.cardName)}</text>
+          <text x="242" y="37" fill="#cfd7e8" font-size="12" text-anchor="end" font-family="var(--font-accent)">${card.orientation === 'up' ? '正位' : '逆位'}</text>
         </g>
       `
     })
@@ -99,22 +114,23 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
         <stop stop-color="#d7a34f" stop-opacity="0.34"/>
         <stop offset="1" stop-color="#d7a34f" stop-opacity="0"/>
       </radialGradient>
+      <style><![CDATA[${SVG_FONT_TOKEN_CSS}]]></style>
     </defs>
     <rect width="760" height="980" rx="34" fill="url(#poster-bg)"/>
     <rect width="760" height="980" rx="34" fill="url(#poster-glow)"/>
     <rect x="28" y="28" width="704" height="924" rx="28" stroke="rgba(255,238,205,0.18)"/>
-    <text x="54" y="84" fill="#e4c98a" font-size="20" font-family="'Cormorant Garamond', serif" letter-spacing="4">UKIYO TAROT SALON</text>
-    <text x="54" y="144" fill="#f7f0de" font-size="42" font-family="'Noto Serif SC', serif">${escapeXml(payload.title)}</text>
-    <text x="54" y="190" fill="#cad5e5" font-size="18" font-family="'Noto Serif SC', serif">${escapeXml(payload.spreadTitle)}</text>
+    <text x="54" y="84" fill="#e4c98a" font-size="20" font-family="var(--font-accent)" letter-spacing="4">UKIYO TAROT SALON</text>
+    <text x="54" y="144" fill="#f7f0de" font-size="42" font-family="var(--font-display)">${escapeXml(payload.title)}</text>
+    <text x="54" y="190" fill="#cad5e5" font-size="18" font-family="var(--font-display)">${escapeXml(payload.spreadTitle)}</text>
     <foreignObject x="54" y="212" width="652" height="54">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Noto Serif SC',serif;font-size:18px;color:#dfe8f8;line-height:1.55;">${escapeXml(payload.question)}</div>
+      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:18px;color:#dfe8f8;line-height:1.55;">${escapeXml(payload.question)}</div>
     </foreignObject>
     ${cardRows}
-    <text x="54" y="734" fill="#e4c98a" font-size="18" font-family="'Cormorant Garamond', serif" letter-spacing="3">SUMMARY</text>
+    <text x="54" y="734" fill="#e4c98a" font-size="18" font-family="var(--font-accent)" letter-spacing="3">SUMMARY</text>
     <foreignObject x="54" y="750" width="652" height="154">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Noto Serif SC',serif;font-size:22px;color:#f8f2e5;line-height:1.7;">${escapeXml(payload.summary)}</div>
+      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:22px;color:#f8f2e5;line-height:1.7;">${escapeXml(payload.summary)}</div>
     </foreignObject>
-    <text x="54" y="932" fill="#bfc9d9" font-size="16" font-family="'Noto Serif SC', serif">浮世塔罗 · 以牌为镜，以行动落地</text>
+    <text x="54" y="932" fill="#bfc9d9" font-size="16" font-family="var(--font-display)">浮世塔罗 · 以牌为镜，以行动落地</text>
   </svg>`
 }
 

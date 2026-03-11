@@ -1,8 +1,10 @@
 import { useDeferredValue, useState } from 'react'
+import { CARD_ART_MANIFEST } from '../data/artManifest'
 import { TAROT_DECK } from '../data/cards'
 import { TOPIC_BY_ID } from '../data/topics'
 import type { TarotCard, TopicId } from '../domain/tarot'
 import { RevealText } from './RevealText'
+import { TarotCardFigure } from './TarotCardFigure'
 
 interface CardEncyclopediaProps {
   featuredCardIds: string[]
@@ -183,6 +185,17 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
               </span>
             </div>
 
+            <div className="encyclopedia-detail__card-shell">
+              <TarotCardFigure
+                art={CARD_ART_MANIFEST[selectedCard.id]}
+                card={selectedCard}
+                className="encyclopedia-detail__card"
+                revealed
+              />
+            </div>
+
+            <div className="encyclopedia-detail__crease" aria-hidden="true" />
+
             <div className="signal-strip">
               {scoreCardTopics(selectedCard).map((topicId) => (
                 <span key={topicId}>{TOPIC_BY_ID[topicId].label}</span>
@@ -194,8 +207,8 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
                 <p className="eyebrow">Upright</p>
                 <h4>正位</h4>
                 <div className="signal-strip">
-                  {selectedCard.keywords.up.map((keyword) => (
-                    <span key={keyword}>{keyword}</span>
+                  {selectedCard.keywords.up.map((keyword, index) => (
+                    <span key={`${selectedCard.id}-up-${keyword}-${index}`}>{keyword}</span>
                   ))}
                 </div>
                 <p>{selectedCard.meaning.up}</p>
@@ -205,8 +218,8 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
                 <p className="eyebrow">Reversed</p>
                 <h4>逆位</h4>
                 <div className="signal-strip">
-                  {selectedCard.keywords.down.map((keyword) => (
-                    <span key={keyword}>{keyword}</span>
+                  {selectedCard.keywords.down.map((keyword, index) => (
+                    <span key={`${selectedCard.id}-down-${keyword}-${index}`}>{keyword}</span>
                   ))}
                 </div>
                 <p>{selectedCard.meaning.down}</p>

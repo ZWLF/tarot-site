@@ -6,7 +6,7 @@ describe('share helpers', () => {
   it('builds readable share text', () => {
     const reading = createReading(
       {
-        question: '我该怎样推进关系？',
+        question: '我该怎么推进关系？',
         topic: 'love',
         spreadId: 'holy-triangle',
         variantId: 'timeline',
@@ -17,8 +17,8 @@ describe('share helpers', () => {
     const text = buildReadingShareText(reading, '爱情')
 
     expect(text).toContain('浮世占')
-    expect(text).toContain('圣三角')
-    expect(text).toContain('爱情')
+    expect(text).toContain(reading.spread.title)
+    expect(text).toContain('主题: 爱情')
   })
 
   it('builds an svg poster payload', () => {

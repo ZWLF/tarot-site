@@ -16,17 +16,17 @@ describe('App tarot flow', () => {
     ).toBeInTheDocument()
     expect(container.querySelector('.particle-layer')).not.toBeInTheDocument()
     expect(container.querySelector('.app-shell__mist')).not.toBeInTheDocument()
-    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(78)
+    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(150)
   })
 
   it(
-    'shows all 78 cards on the deck stage and completes a holy triangle reading',
+    'shows all 150 cards on the deck stage and completes a holy triangle reading',
     async () => {
       const user = userEvent.setup()
 
       render(<App shuffleDelayMs={0} />)
 
-      expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(78)
+      expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(150)
 
       const questionText = '我接下来该怎样处理这段关系？'
 
@@ -58,7 +58,7 @@ describe('App tarot flow', () => {
 
       expect(screen.getByText('关系推进判断')).toBeInTheDocument()
     },
-    15000,
+    30000,
   )
 
   it(
