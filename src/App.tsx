@@ -750,21 +750,25 @@ function App({ shuffleDelayMs }: AppProps) {
                     <span>{spread.cardCount} 张</span>
                     <span>{spread.layoutId}</span>
                   </div>
-                  <h3>{spread.title}</h3>
-                  <p>{spread.description}</p>
-                  <div className={`spread-preview spread-preview--${spread.layoutId}`}>
-                    {previewPositions.map((position) => (
-                      <span
-                        key={`${spread.id}-${position.key}`}
-                        className="spread-preview__dot"
-                        style={
-                          {
-                            '--preview-x': `${position.x}%`,
-                            '--preview-y': `${position.y}%`,
-                          } as CSSProperties
-                        }
-                      />
-                    ))}
+                  <div className="spread-card__body">
+                    <div className="spread-card__info">
+                      <h3>{spread.title}</h3>
+                      <p>{spread.description}</p>
+                    </div>
+                    <div className={`spread-preview spread-preview--${spread.layoutId}`}>
+                      {previewPositions.map((position) => (
+                        <span
+                          key={`${spread.id}-${position.key}`}
+                          className="spread-preview__dot"
+                          style={
+                            {
+                              '--preview-x': `${position.x}%`,
+                              '--preview-y': `${position.y}%`,
+                            } as CSSProperties
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
                 </button>
               )
@@ -860,10 +864,7 @@ function App({ shuffleDelayMs }: AppProps) {
           </div>
         </section>
 
-        <DeckStage
-          highlightedCardIds={deckHighlights}
-          isShuffling={isShuffling}
-        />
+        <DeckStage highlightedCardIds={deckHighlights} />
 
         <section className="panel section" id="result">
           <div className="section__heading">
@@ -883,8 +884,8 @@ function App({ shuffleDelayMs }: AppProps) {
                 {reading.spread.activeVariantTitle ? (
                   <span>{reading.spread.activeVariantTitle}</span>
                 ) : null}
-                {reading.dominantSignals.map((signal) => (
-                  <span key={signal}>{signal}</span>
+                {reading.dominantSignals.map((signal, index) => (
+                  <span key={`signal-${index}-${signal}`}>{signal}</span>
                 ))}
               </div>
 
