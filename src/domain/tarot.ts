@@ -97,12 +97,10 @@ export interface DrawnCard {
 
 export interface CardArtManifest {
   cardId: string
-  accentToken: 'gold' | 'crimson' | 'azure' | 'jade'
   frame: 'sun' | 'moon' | 'gate' | 'ribbon'
   motif: string
   constellation: string
   seal: string
-  background: 'dawn' | 'ember' | 'mist' | 'night'
   glyphs: string[]
   imageUrl?: string
   imageCredit?: string
@@ -110,7 +108,6 @@ export interface CardArtManifest {
 
 export interface ReadingPreferences {
   shuffleSpeed: 'fast' | 'normal' | 'slow'
-  shuffleIntensity: 'low' | 'medium' | 'high'
   orientationMode: OrientationMode
 }
 

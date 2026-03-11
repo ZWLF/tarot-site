@@ -150,24 +150,24 @@ describe('reading storage', () => {
   it('stores and reads drawing preferences with safe defaults', () => {
     saveReadingPreferences({
       shuffleSpeed: 'slow',
-      shuffleIntensity: 'high',
       orientationMode: 'up-only',
     })
 
     expect(loadReadingPreferences()).toEqual({
       shuffleSpeed: 'slow',
-      shuffleIntensity: 'high',
       orientationMode: 'up-only',
     })
 
     window.localStorage.setItem(
       'ukiyo-tarot.reading-preferences',
-      JSON.stringify({ shuffleSpeed: 'bad-value' }),
+      JSON.stringify({
+        shuffleSpeed: 'bad-value',
+        shuffleIntensity: 'high',
+      }),
     )
 
     expect(loadReadingPreferences()).toEqual({
       shuffleSpeed: 'normal',
-      shuffleIntensity: 'medium',
       orientationMode: 'random',
     })
   })

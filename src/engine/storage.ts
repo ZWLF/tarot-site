@@ -18,7 +18,6 @@ const MAX_RECORDS = 120
 
 const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
   shuffleSpeed: 'normal',
-  shuffleIntensity: 'medium',
   orientationMode: 'random',
 }
 
@@ -410,12 +409,6 @@ const sanitizePreferences = (
     value?.shuffleSpeed === 'slow'
       ? value.shuffleSpeed
       : DEFAULT_READING_PREFERENCES.shuffleSpeed,
-  shuffleIntensity:
-    value?.shuffleIntensity === 'low' ||
-    value?.shuffleIntensity === 'medium' ||
-    value?.shuffleIntensity === 'high'
-      ? value.shuffleIntensity
-      : DEFAULT_READING_PREFERENCES.shuffleIntensity,
   orientationMode:
     value?.orientationMode === 'up-only' || value?.orientationMode === 'random'
       ? value.orientationMode

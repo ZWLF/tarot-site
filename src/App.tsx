@@ -827,23 +827,6 @@ function App({ shuffleDelayMs }: AppProps) {
                 </select>
               </label>
               <label className="inline-input">
-                <span>洗牌强度</span>
-                <select
-                  value={preferences.shuffleIntensity}
-                  onChange={(event) =>
-                    setPreferences((current) => ({
-                      ...current,
-                      shuffleIntensity:
-                        event.target.value as ReadingPreferences['shuffleIntensity'],
-                    }))
-                  }
-                >
-                  <option value="low">低</option>
-                  <option value="medium">中</option>
-                  <option value="high">高</option>
-                </select>
-              </label>
-              <label className="inline-input">
                 <span>翻牌模式</span>
                 <select
                   value={preferences.orientationMode}
@@ -880,7 +863,6 @@ function App({ shuffleDelayMs }: AppProps) {
         <DeckStage
           highlightedCardIds={deckHighlights}
           isShuffling={isShuffling}
-          shuffleIntensity={preferences.shuffleIntensity}
         />
 
         <section className="panel section" id="result">

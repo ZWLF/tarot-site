@@ -27,13 +27,6 @@ const MAJOR_MOTIFS: Record<string, string> = {
   'the-world': '圆环',
 }
 
-const SUIT_BACKGROUNDS = {
-  wands: 'ember',
-  cups: 'mist',
-  swords: 'night',
-  pentacles: 'dawn',
-} as const
-
 const SUIT_MOTIFS = {
   wands: ['火羽', '焰印', '燎原', '流火'],
   cups: ['潮纹', '月潮', '镜湖', '潮杯'],
@@ -54,22 +47,6 @@ const createGlyphs = (seed: string) => {
   return [chars[0] ?? 'T', chars[1] ?? 'A', chars[2] ?? 'R']
 }
 
-const accentForSuit = (suit: string | null): CardArtManifest['accentToken'] => {
-  if (suit === 'wands') {
-    return 'crimson'
-  }
-
-  if (suit === 'cups') {
-    return 'azure'
-  }
-
-  if (suit === 'swords') {
-    return 'gold'
-  }
-
-  return 'jade'
-}
-
 export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEntries(
   TAROT_DECK.map((card) => {
     const glyphs = createGlyphs(card.id)
@@ -79,7 +56,6 @@ export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEnt
         card.id,
         {
           cardId: card.id,
-          accentToken: card.number % 2 === 0 ? 'gold' : 'azure',
           frame:
             card.number % 4 === 0
               ? 'sun'
@@ -91,14 +67,6 @@ export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEnt
           motif: MAJOR_MOTIFS[card.id] ?? '命途',
           constellation: `大牌 ${String(card.number).padStart(2, '0')}`,
           seal: `阿尔卡那 ${card.number}`,
-          background:
-            card.number % 4 === 0
-              ? 'dawn'
-              : card.number % 4 === 1
-                ? 'mist'
-                : card.number % 4 === 2
-                  ? 'night'
-                  : 'ember',
           glyphs,
           imageUrl: CARD_IMAGE_BY_ID[card.id],
           imageCredit: CARD_IMAGE_CREDIT,
@@ -113,12 +81,10 @@ export const CARD_ART_MANIFEST: Record<string, CardArtManifest> = Object.fromEnt
       card.id,
       {
         cardId: card.id,
-        accentToken: accentForSuit(card.suit),
         frame: card.number <= 4 ? 'gate' : card.number <= 10 ? 'ribbon' : 'moon',
         motif,
         constellation: `${card.nameEn.split(' of ')[0]} · ${card.nameEn.split(' of ')[1]}`,
         seal: `${SUIT_SEALS[card.suit]} ${card.number}`,
-        background: SUIT_BACKGROUNDS[card.suit],
         glyphs,
         imageUrl: CARD_IMAGE_BY_ID[card.id],
         imageCredit: CARD_IMAGE_CREDIT,

@@ -1,0 +1,102 @@
+.deck-vortex-section {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-top: 40px;
+  padding-bottom: 56px;
+}
+
+.deck-vortex-heading,
+.deck-vortex-lede {
+  width: 100%;
+}
+
+.deck-vortex-heading {
+  max-width: 1180px;
+}
+
+.deck-vortex-lede {
+  max-width: 52rem;
+  margin: 0;
+}
+
+.deck-vortex-container {
+  position: relative;
+  width: min(100%, 1180px);
+  height: 700px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1400px;
+  perspective-origin: 50% 42%;
+  transform-style: preserve-3d;
+}
+
+.deck-vortex-container.is-shuffling {
+  animation: vortex-breathe 4.4s ease-in-out infinite alternate;
+}
+
+.deck-vortex-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 110px;
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  transition:
+    transform 320ms ease,
+    opacity 220ms ease,
+    filter 220ms ease;
+  cursor: pointer;
+  filter: grayscale(0.18) brightness(0.9);
+}
+
+.deck-vortex-card.is-hovered {
+  filter: grayscale(0) brightness(1.06);
+}
+
+.deck-vortex-card.is-faded {
+  opacity: 0.3;
+  filter: grayscale(0.82) brightness(0.56);
+}
+
+.deck-vortex-card.is-highlighted {
+  filter: grayscale(0) brightness(1.08) drop-shadow(0 22px 44px rgba(0, 0, 0, 0.34));
+}
+
+@keyframes vortex-breathe {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  100% {
+    transform: scale(1.02) rotate(1.4deg);
+  }
+}
+
+@media (max-width: 960px) {
+  .deck-vortex-container {
+    height: 600px;
+  }
+
+  .deck-vortex-card {
+    width: 98px;
+  }
+}
+
+@media (max-width: 640px) {
+  .deck-vortex-section {
+    padding-top: 32px;
+    padding-bottom: 40px;
+  }
+
+  .deck-vortex-container {
+    height: 520px;
+  }
+
+  .deck-vortex-card {
+    width: 84px;
+  }
+}

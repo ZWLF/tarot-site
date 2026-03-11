@@ -14,10 +14,10 @@ interface TarotCardFigureProps {
 }
 
 const SUIT_SYMBOLS = {
-  wands: '焰',
-  cups: '潮',
-  swords: '锋',
-  pentacles: '穗',
+  wands: 'W',
+  cups: 'C',
+  swords: 'S',
+  pentacles: 'P',
 } as const
 
 const getPipCount = (card: TarotCard) =>
@@ -78,26 +78,7 @@ export function TarotCardFigure({
         onClick={interactive ? onClick : undefined}
       >
         <div className="tarot-card-figure__mini">
-          <div className="tarot-card-figure__mini-header">
-            <span>{art.seal}</span>
-            <span>{card.arcana === 'major' ? `M${card.number}` : art.motif}</span>
-          </div>
-          <div className="tarot-card-figure__mini-mark">
-            {art.imageUrl ? (
-              <img
-                className="tarot-card-figure__mini-image"
-                src={art.imageUrl}
-                alt={`${card.nameZh}牌面`}
-                loading="lazy"
-              />
-            ) : (
-              art.motif
-            )}
-          </div>
-          <div className="tarot-card-figure__mini-footer">
-            <strong>{card.nameZh}</strong>
-            <small>{label ?? card.nameEn}</small>
-          </div>
+          <strong className="tarot-card-figure__mini-name">{card.nameZh}</strong>
         </div>
       </Tag>
     )
@@ -112,14 +93,14 @@ export function TarotCardFigure({
     >
       <div className="tarot-card-figure__inner">
         <div className="tarot-card-figure__face tarot-card-figure__face--back">
-          <span className="tarot-card-figure__back-mark">浮世</span>
-          <span className="tarot-card-figure__back-sub">TAROT</span>
+          <span className="tarot-card-figure__back-mark">UKIYO</span>
+          <span className="tarot-card-figure__back-sub">TAROT ARCHIVE</span>
         </div>
 
         <div className="tarot-card-figure__face tarot-card-figure__face--front">
           <div className="tarot-card-figure__header">
             <span>{art.seal}</span>
-            <span>{card.arcana === 'major' ? 'Major' : 'Minor'}</span>
+            <span>{card.arcana === 'major' ? 'Major Arcana' : 'Minor Arcana'}</span>
           </div>
 
           <div className={`tarot-card-figure__frame tarot-card-figure__frame--${art.frame}`}>
@@ -130,7 +111,7 @@ export function TarotCardFigure({
                     orientation === 'down' ? 'is-reversed' : ''
                   }`}
                   src={art.imageUrl}
-                  alt={`${card.nameZh}牌面`}
+                  alt={`${card.nameEn} artwork`}
                   loading="lazy"
                 />
               </div>
@@ -141,6 +122,7 @@ export function TarotCardFigure({
                 {renderPips(card)}
               </>
             )}
+
             <div className="tarot-card-figure__glyphs" aria-hidden="true">
               {art.glyphs.map((glyph, index) => (
                 <span key={`${card.id}-${glyph}-${index}`}>{glyph}</span>
@@ -149,12 +131,14 @@ export function TarotCardFigure({
           </div>
 
           <div className="tarot-card-figure__footer">
+            <div className="tarot-card-figure__title-block">
+              <strong>{card.nameZh}</strong>
+              <small>
+                {card.nameEn}
+                {revealed ? ` / ${orientation === 'up' ? 'Upright' : 'Reversed'}` : ''}
+              </small>
+            </div>
             {label ? <span className="tarot-card-figure__label">{label}</span> : null}
-            <strong>{card.nameZh}</strong>
-            <small>
-              {card.nameEn}
-              {revealed ? ` · ${orientation === 'up' ? '正位' : '逆位'}` : ''}
-            </small>
           </div>
         </div>
       </div>
