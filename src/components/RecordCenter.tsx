@@ -1,22 +1,29 @@
 import type { ReadingRecordV2 } from '../domain/tarot'
-import { CARD_IMAGE_BY_ID } from '../data/cardImages'
+import { CARD_IMAGE_ASSET_BY_ID } from '../data/cardImages'
 import { RevealText } from './RevealText'
+import { StatusMessage } from './StatusMessage'
 
 export type RecordDateFilter = 'all' | '7d' | '30d'
 
 interface RecordCenterProps {
-  records: ReadingRecordV2[]
-  filter: 'all' | 'saved' | 'auto' | 'daily'
-  query: string
-  tagFilter: string
-  dateFilter: RecordDateFilter
   compareSelection: string[]
+  dateFilter: RecordDateFilter
+  filter: 'all' | 'saved' | 'auto' | 'daily'
+  onClearCompare: () => void
+  onDateFilterChange: (value: RecordDateFilter) => void
+  onExportRecords: () => void
   onFilterChange: (filter: 'all' | 'saved' | 'auto' | 'daily') => void
+  onImportRecords: () => void
   onQueryChange: (value: string) => void
   onTagFilterChange: (value: string) => void
-  onDateFilterChange: (value: RecordDateFilter) => void
   onToggleCompare: (recordId: string) => void
-  onClearCompare: () => void
+  query: string
+  records: ReadingRecordV2[]
+  recordsMessage: string | null
+  sectionId?: string
+  storageBackend: 'indexeddb' | 'localstorage'
+  storageReady: boolean
+  tagFilter: string
 }
 
 const matchesRecord = (record: ReadingRecordV2, query: string) => {
@@ -59,19 +66,46 @@ const formatRecordTime = (iso: string) =>
     minute: '2-digit',
   }).format(new Date(iso))
 
+const RecordCardThumbs = ({ record }: { record: ReadingRecordV2 }) => (
+  <div className="record-card__thumbs">
+    {record.cards.slice(0, 6).map((card) => {
+      const imageAsset = CARD_IMAGE_ASSET_BY_ID[card.cardId]
+
+      return imageAsset ? (
+        <picture key={`${record.id}-${card.cardId}-${card.positionLabel}`}>
+          <source srcSet={imageAsset.thumbnailWebpUrl} type="image/webp" />
+          <img
+            src={imageAsset.thumbnailJpgUrl}
+            alt={`${card.cardName}牌面`}
+            height={160}
+            loading="lazy"
+            width={96}
+          />
+        </picture>
+      ) : null
+    })}
+  </div>
+)
+
 export function RecordCenter({
-  records,
-  filter,
-  query,
-  tagFilter,
-  dateFilter,
   compareSelection,
+  dateFilter,
+  filter,
+  onClearCompare,
+  onDateFilterChange,
+  onExportRecords,
   onFilterChange,
+  onImportRecords,
   onQueryChange,
   onTagFilterChange,
-  onDateFilterChange,
   onToggleCompare,
-  onClearCompare,
+  query,
+  records,
+  recordsMessage,
+  sectionId = 'records',
+  storageBackend,
+  storageReady,
+  tagFilter,
 }: RecordCenterProps) {
   const availableTags = Array.from(new Set(records.flatMap((record) => record.tags))).sort()
   const filteredRecords = records.filter((record) => {
@@ -94,14 +128,26 @@ export function RecordCenter({
     .filter((record): record is ReadingRecordV2 => record !== undefined)
 
   return (
-    <section className="panel section" id="records">
+    <section className="panel section" id={sectionId}>
       <div className="section__heading">
         <div>
           <p className="eyebrow">Record Center</p>
           <RevealText as="h2" text="记录中心" />
         </div>
-        <span className="section__count">{records.length} 条</span>
+        <span className="section__count">
+          {records.length} 条 · {storageReady ? storageBackend : '同步中'}
+        </span>
       </div>
+
+      <div className="record-controls">
+        <button className="ghost-button" type="button" onClick={onExportRecords}>
+          导出记录
+        </button>
+        <button className="ghost-button" type="button" onClick={onImportRecords}>
+          导入记录
+        </button>
+      </div>
+      <StatusMessage message={recordsMessage} />
 
       <div className="utility-row">
         <div className="utility-toggle">
@@ -184,9 +230,9 @@ export function RecordCenter({
         <p className="selection-note">对比模式：已选择 {compareSelection.length}/2 条</p>
         <button
           className="ghost-button"
+          disabled={compareSelection.length === 0}
           type="button"
           onClick={onClearCompare}
-          disabled={compareSelection.length === 0}
         >
           清空对比
         </button>
@@ -206,27 +252,14 @@ export function RecordCenter({
               </div>
               <p>{record.summary}</p>
 
-              <div className="record-card__thumbs">
-                {record.cards.slice(0, 6).map((card) => {
-                  const imageUrl = CARD_IMAGE_BY_ID[card.cardId]
-
-                  return imageUrl ? (
-                    <img
-                      key={`${record.id}-${card.cardId}-${card.positionLabel}`}
-                      src={imageUrl}
-                      alt={`${card.cardName}牌面`}
-                      loading="lazy"
-                    />
-                  ) : null
-                })}
-              </div>
+              <RecordCardThumbs record={record} />
               <div className="record-card__details">
                 <div>
                   <h4>牌位</h4>
                   <ul className="advice-list">
                     {record.cards.map((card) => (
                       <li key={`${record.id}-${card.positionLabel}-${card.cardId}`}>
-                        {card.positionLabel} · {card.cardName} ·{' '}
+                        {card.positionLabel} 路 {card.cardName} 路{' '}
                         {card.orientation === 'up' ? '正位' : '逆位'}
                       </li>
                     ))}
@@ -237,7 +270,7 @@ export function RecordCenter({
                   <ul className="advice-list">
                     {record.actionPlan.map((step) => (
                       <li key={`${record.id}-${step.id}`}>
-                        {step.done ? '已完成' : '待完成'} · {step.title}
+                        {step.done ? '已完成' : '待完成'} 路 {step.title}
                       </li>
                     ))}
                   </ul>
@@ -272,21 +305,7 @@ export function RecordCenter({
                 </div>
 
                 <p>{record.summary}</p>
-
-                <div className="record-card__thumbs">
-                  {record.cards.slice(0, 6).map((card) => {
-                    const imageUrl = CARD_IMAGE_BY_ID[card.cardId]
-
-                    return imageUrl ? (
-                      <img
-                        key={`${record.id}-${card.cardId}-${card.positionLabel}`}
-                        src={imageUrl}
-                        alt={`${card.cardName}牌面`}
-                        loading="lazy"
-                      />
-                    ) : null
-                  })}
-                </div>
+                <RecordCardThumbs record={record} />
 
                 {record.tags.length > 0 ? (
                   <div className="signal-strip">
@@ -299,9 +318,9 @@ export function RecordCenter({
                 <div className="record-card__actions">
                   <button
                     className={`pill ${selected ? 'is-active' : ''}`}
+                    disabled={disabled}
                     type="button"
                     onClick={() => onToggleCompare(record.id)}
-                    disabled={disabled}
                   >
                     {selected ? '已加入对比' : '加入对比'}
                   </button>
@@ -325,7 +344,7 @@ export function RecordCenter({
                       <ul className="advice-list">
                         {record.actionPlan.map((step) => (
                           <li key={`${record.id}-${step.id}`}>
-                            {step.done ? '已完成' : '待完成'} · {step.title}
+                            {step.done ? '已完成' : '待完成'} 路 {step.title}
                           </li>
                         ))}
                       </ul>

@@ -5,12 +5,19 @@ import { TAROT_DECK } from '../data/cards'
 
 describe('DeckStage abyss funnel', () => {
   it('renders 150 vortex cards with three-layer nesting', () => {
-    const { container } = render(<DeckStage highlightedCardIds={[]} />)
+    const { container } = render(<DeckStage highlightedCardIds={[]} performanceMode="full" />)
 
     expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(150)
     expect(container.querySelectorAll('.deck-vortex-card-positioner')).toHaveLength(150)
     expect(container.querySelectorAll('.deck-vortex-card-floater')).toHaveLength(150)
     expect(container.querySelectorAll('.deck-vortex-card-visual')).toHaveLength(150)
+  })
+
+  it('reduces the number of rendered cards in lite mode', () => {
+    const { container } = render(<DeckStage highlightedCardIds={[]} performanceMode="lite" />)
+
+    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(78)
+    expect(container.querySelectorAll('.deck-vortex-card-positioner')).toHaveLength(78)
   })
 
   it('highlights only the first duplicated instance for a highlighted card id', () => {

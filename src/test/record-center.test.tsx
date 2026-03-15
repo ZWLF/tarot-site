@@ -20,7 +20,7 @@ const createRecord = (
   topicLabel: '通用',
   spreadId: 'holy-triangle',
   spreadTitle: '圣三角',
-  tone: '稳定推进',
+  tone: '稳步推进',
   summary: `总结-${id}`,
   dominantSignals: ['主题：通用'],
   tags: [],
@@ -53,18 +53,23 @@ describe('RecordCenter filters and compare', () => {
 
     render(
       <RecordCenter
-        records={records}
-        filter="all"
-        query=""
-        tagFilter="关系"
-        dateFilter="7d"
         compareSelection={[]}
+        dateFilter="7d"
+        filter="all"
+        onClearCompare={vi.fn()}
+        onDateFilterChange={vi.fn()}
+        onExportRecords={vi.fn()}
         onFilterChange={vi.fn()}
+        onImportRecords={vi.fn()}
         onQueryChange={vi.fn()}
         onTagFilterChange={vi.fn()}
-        onDateFilterChange={vi.fn()}
         onToggleCompare={onToggleCompare}
-        onClearCompare={vi.fn()}
+        query=""
+        records={records}
+        recordsMessage={null}
+        storageBackend="indexeddb"
+        storageReady
+        tagFilter="关系"
       />,
     )
 
@@ -75,4 +80,3 @@ describe('RecordCenter filters and compare', () => {
     expect(onToggleCompare).toHaveBeenCalledWith('recent-love')
   })
 })
-
