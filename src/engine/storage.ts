@@ -8,6 +8,7 @@ import type {
   SavedActionPlanStep,
 } from '../domain/tarot'
 import { TOPIC_BY_ID } from '../data/topics'
+import { buildLocalDateKey } from '../lib/localDate'
 
 const RECORDS_KEY = 'ukiyo-tarot.records-v2'
 const GUIDE_DISMISSED_KEY = 'ukiyo-tarot.guide-dismissed'
@@ -17,6 +18,7 @@ const LEGACY_HISTORY_KEY = 'ukiyo-tarot:reading-history'
 const MAX_RECORDS = 120
 
 const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
+  deckPerformanceMode: 'auto',
   shuffleSpeed: 'normal',
   orientationMode: 'random',
 }
@@ -64,7 +66,7 @@ const hashContent = (value: string) => {
   return hash.toString(36)
 }
 
-const normalizeRecords = (records: ReadingRecordV2[]) =>
+export const normalizeReadingRecords = (records: ReadingRecordV2[]) =>
   records
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, MAX_RECORDS)
@@ -192,7 +194,7 @@ const migrateLegacyHistoryEntry = (
   }
 }
 
-const mergeRecords = (records: ReadingRecordV2[]) => {
+export const mergeReadingRecords = (records: ReadingRecordV2[]) => {
   const map = new Map<string, ReadingRecordV2>()
 
   for (const record of records) {
@@ -234,14 +236,14 @@ const mergeRecords = (records: ReadingRecordV2[]) => {
     })
   }
 
-  return normalizeRecords(Array.from(map.values()))
+  return normalizeReadingRecords(Array.from(map.values()))
 }
 
 const migrateLegacyRecords = () => {
   const legacySaved = readJson<LegacySavedReadingRecord[]>(LEGACY_SAVED_KEY, [])
   const legacyHistory = readJson<SavedReadingEntry[]>(LEGACY_HISTORY_KEY, [])
 
-  return mergeRecords([
+  return mergeReadingRecords([
     ...legacySaved.map(migrateLegacySavedRecord),
     ...legacyHistory.map(migrateLegacyHistoryEntry),
   ])
@@ -251,7 +253,7 @@ export const loadReadingRecords = (): ReadingRecordV2[] => {
   const storedRecords = readJson<ReadingRecordV2[]>(RECORDS_KEY, [])
 
   if (storedRecords.length > 0) {
-    return normalizeRecords(storedRecords)
+    return normalizeReadingRecords(storedRecords)
   }
 
   const migrated = migrateLegacyRecords()
@@ -264,11 +266,13 @@ export const loadReadingRecords = (): ReadingRecordV2[] => {
 }
 
 export const storeReadingRecords = (records: ReadingRecordV2[]) => {
-  writeJson(RECORDS_KEY, normalizeRecords(records))
+  const normalizedRecords = normalizeReadingRecords(records)
+  writeJson(RECORDS_KEY, normalizedRecords)
+  return normalizedRecords
 }
 
 export const saveReadingRecord = (record: ReadingRecordV2) => {
-  const records = mergeRecords([record, ...loadReadingRecords()])
+  const records = mergeReadingRecords([record, ...loadReadingRecords()])
   storeReadingRecords(records)
   return records
 }
@@ -288,15 +292,12 @@ export const buildReadingRecordId = (reading: ReadingResult) =>
   )}`
 
 export const buildDailyRecordId = (date: Date) => {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-
-  return `daily-${year}-${month}-${day}`
+  return `daily-${buildLocalDateKey(date)}`
 }
 
 interface RecordOptions {
   recordId?: string
+  createdAt?: string
   saved: boolean
   title: string
   tags: string[]
@@ -315,13 +316,14 @@ export const buildReadingRecordFromReading = (
   options: RecordOptions,
 ): ReadingRecordV2 => {
   const now = new Date().toISOString()
+  const createdAt = options.createdAt ?? now
 
   return {
     version: 2,
     id: options.recordId ?? buildReadingRecordId(reading),
     kind: 'reading',
     saved: options.saved,
-    createdAt: now,
+    createdAt,
     updatedAt: now,
     title: options.title || reading.input.question,
     question: reading.input.question,
@@ -403,6 +405,12 @@ export const storeGuideDismissed = (value: boolean) => {
 const sanitizePreferences = (
   value: Partial<ReadingPreferences> | null | undefined,
 ): ReadingPreferences => ({
+  deckPerformanceMode:
+    value?.deckPerformanceMode === 'auto' ||
+    value?.deckPerformanceMode === 'full' ||
+    value?.deckPerformanceMode === 'lite'
+      ? value.deckPerformanceMode
+      : DEFAULT_READING_PREFERENCES.deckPerformanceMode,
   shuffleSpeed:
     value?.shuffleSpeed === 'fast' ||
     value?.shuffleSpeed === 'normal' ||
@@ -420,4 +428,52 @@ export const loadReadingPreferences = () =>
 
 export const saveReadingPreferences = (value: ReadingPreferences) => {
   writeJson(PREFERENCES_KEY, sanitizePreferences(value))
+}
+
+const isReadingRecordV2 = (value: unknown): value is ReadingRecordV2 => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Partial<ReadingRecordV2>
+
+  return (
+    record.version === 2 &&
+    typeof record.id === 'string' &&
+    (record.kind === 'reading' || record.kind === 'daily') &&
+    typeof record.question === 'string' &&
+    Array.isArray(record.cards) &&
+    Array.isArray(record.tags) &&
+    Array.isArray(record.followUps) &&
+    Array.isArray(record.actionPlan)
+  )
+}
+
+export const exportReadingRecordsJson = (records: ReadingRecordV2[]) =>
+  JSON.stringify(
+    {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      recordCount: records.length,
+      records: normalizeReadingRecords([...records]),
+    },
+    null,
+    2,
+  )
+
+export const parseReadingRecordsJson = (raw: string) => {
+  const parsed = JSON.parse(raw) as
+    | { records?: unknown }
+    | ReadingRecordV2[]
+    | undefined
+
+  const rawRecords = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.records)
+      ? parsed.records
+      : []
+
+  return normalizeReadingRecords(
+    rawRecords.filter((record): record is ReadingRecordV2 => isReadingRecordV2(record)),
+  )
 }

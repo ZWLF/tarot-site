@@ -1,4 +1,5 @@
 import type { CardArtManifest, Orientation, TarotCard } from '../domain/tarot'
+import { CARD_IMAGE_ASSET_BY_ID } from '../data/cardImages'
 
 interface TarotCardFigureProps {
   card: TarotCard
@@ -10,6 +11,7 @@ interface TarotCardFigureProps {
   interactive?: boolean
   onClick?: () => void
   className?: string
+  imageProfile?: 'detail' | 'thumb' | 'minimal'
   testId?: string
 }
 
@@ -57,6 +59,7 @@ export function TarotCardFigure({
   interactive = false,
   onClick,
   className = '',
+  imageProfile = 'detail',
   testId,
 }: TarotCardFigureProps) {
   const Tag = interactive ? 'button' : 'div'
@@ -68,6 +71,23 @@ export function TarotCardFigure({
   ]
     .filter(Boolean)
     .join(' ')
+
+  const imageAsset = CARD_IMAGE_ASSET_BY_ID[card.id]
+  const shouldShowArtwork =
+    imageProfile !== 'minimal' && Boolean(art.imageUrl && imageAsset)
+  const imageSizes =
+    imageProfile === 'thumb'
+      ? '(max-width: 768px) 120px, 160px'
+      : '(max-width: 768px) 200px, 320px'
+  const fallbackSrc = imageProfile === 'thumb'
+    ? imageAsset?.thumbnailJpgUrl
+    : imageAsset?.detailJpgUrl ?? art.imageUrl
+  const fallbackSrcSet = imageAsset
+    ? `${imageAsset.thumbnailJpgUrl} 240w, ${imageAsset.detailJpgUrl} 720w`
+    : undefined
+  const webpSrcSet = imageAsset
+    ? `${imageAsset.thumbnailWebpUrl} 240w, ${imageAsset.detailWebpUrl} 720w`
+    : undefined
 
   if (compact) {
     return (
@@ -104,16 +124,23 @@ export function TarotCardFigure({
           </div>
 
           <div className={`tarot-card-figure__frame tarot-card-figure__frame--${art.frame}`}>
-            {art.imageUrl ? (
+            {shouldShowArtwork ? (
               <div className="tarot-card-figure__image-wrap">
-                <img
-                  className={`tarot-card-figure__image ${
-                    orientation === 'down' ? 'is-reversed' : ''
-                  }`}
-                  src={art.imageUrl}
-                  alt={`${card.nameEn} artwork`}
-                  loading="lazy"
-                />
+                <picture>
+                  {webpSrcSet ? (
+                    <source sizes={imageSizes} srcSet={webpSrcSet} type="image/webp" />
+                  ) : null}
+                  <img
+                    className={`tarot-card-figure__image ${
+                      orientation === 'down' ? 'is-reversed' : ''
+                    }`}
+                    src={fallbackSrc}
+                    srcSet={fallbackSrcSet}
+                    sizes={imageSizes}
+                    alt={`${card.nameEn} artwork`}
+                    loading="lazy"
+                  />
+                </picture>
               </div>
             ) : (
               <>

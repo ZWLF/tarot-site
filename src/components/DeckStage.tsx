@@ -1,20 +1,63 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { CARD_ART_MANIFEST } from '../data/artManifest'
 import { TAROT_DECK } from '../data/cards'
+import type { DeckPerformanceMode } from '../domain/tarot'
 import { TarotCardFigure } from './TarotCardFigure'
 import './DeckStageVortex.css'
 
 interface DeckStageProps {
   highlightedCardIds: string[]
+  performanceMode?: DeckPerformanceMode
 }
 
-export function DeckStage({ highlightedCardIds }: DeckStageProps) {
+const resolveDeckElementCount = (
+  performanceMode: DeckPerformanceMode,
+  reduceMotion: boolean,
+  viewportWidth: number,
+) => {
+  if (performanceMode === 'full') {
+    return 150
+  }
+
+  if (performanceMode === 'lite') {
+    return 60
+  }
+
+  if (reduceMotion) {
+    return 42
+  }
+
+  if (viewportWidth < 640) {
+    return 48
+  }
+
+  if (viewportWidth < 1024) {
+    return 96
+  }
+
+  return 150
+}
+
+export function DeckStage({
+  highlightedCardIds,
+  performanceMode = 'auto',
+}: DeckStageProps) {
   const [hoveredInstanceIndex, setHoveredInstanceIndex] = useState<number | null>(null)
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 1180,
   )
+  const [reduceMotion, setReduceMotion] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
   const highlightedSet = new Set(highlightedCardIds)
-  const totalElements = Math.max(TAROT_DECK.length, 150)
+  const totalElements = Math.max(
+    TAROT_DECK.length,
+    resolveDeckElementCount(performanceMode, reduceMotion, viewportWidth),
+  )
   const scaleFactor = Math.min(viewportWidth / 1180, 1)
   const firstHighlightIndexByCardId = new Map<string, number>()
 
@@ -24,8 +67,22 @@ export function DeckStage({ highlightedCardIds }: DeckStageProps) {
     }
 
     const handleResize = () => setViewportWidth(window.innerWidth)
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const syncReduceMotion = () => setReduceMotion(mediaQuery.matches)
+
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncReduceMotion)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', syncReduceMotion)
+      }
+    }
   }, [])
 
   for (let index = 0; index < totalElements; index += 1) {
@@ -41,13 +98,13 @@ export function DeckStage({ highlightedCardIds }: DeckStageProps) {
       <div className="section__heading deck-vortex-heading">
         <div>
           <p className="eyebrow">The Archive</p>
-          <h2>浮世阶梯</h2>
+          <h2>浮世档案台</h2>
         </div>
-        <span className="section__count">150 阵列（78 秘仪循环）</span>
+        <span className="section__count">{totalElements} 阵列 · 78 张牌循环</span>
       </div>
 
       <p className="section__lede deck-vortex-lede">
-        78 张牌不再平铺陈列，而是像一段缓慢上升的档案螺旋。抽中的牌先在阵列中显影，再进入本次牌阵。
+        78 张牌不再平铺陈列，而是像一段缓慢上升的档案旋涡。抽中的牌会先在阵列里显影，再进入本次牌阵。
       </p>
 
       <div className="deck-vortex-container">
@@ -64,6 +121,12 @@ export function DeckStage({ highlightedCardIds }: DeckStageProps) {
           const fadeOpacity = Math.max(0, (progress - 0.1) * 1.5)
           const isHovered = hoveredInstanceIndex === index
           const isHighlighted = firstHighlightIndexByCardId.get(card.id) === index
+          const imageProfile =
+            performanceMode === 'lite' || (performanceMode === 'auto' && reduceMotion)
+              ? isHovered || isHighlighted
+                ? 'thumb'
+                : 'minimal'
+              : 'thumb'
 
           return (
             <div
@@ -89,6 +152,7 @@ export function DeckStage({ highlightedCardIds }: DeckStageProps) {
                   art={CARD_ART_MANIFEST[card.id]}
                   card={card}
                   className="deck-vortex-card-visual"
+                  imageProfile={imageProfile}
                   revealed
                   testId="deck-stage-card"
                 />

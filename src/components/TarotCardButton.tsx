@@ -3,6 +3,7 @@ import { TarotCardFigure } from './TarotCardFigure'
 
 interface TarotCardButtonProps {
   entry: ReadingCardView
+  imageProfile?: 'detail' | 'thumb' | 'minimal'
   revealed: boolean
   onReveal: () => void
   compact?: boolean
@@ -11,6 +12,7 @@ interface TarotCardButtonProps {
 
 export function TarotCardButton({
   entry,
+  imageProfile,
   revealed,
   onReveal,
   compact = false,
@@ -21,6 +23,7 @@ export function TarotCardButton({
       art={entry.art}
       card={entry.card}
       compact={compact}
+      imageProfile={imageProfile}
       interactive={!revealed}
       label={entry.positionLabel}
       onClick={onReveal}

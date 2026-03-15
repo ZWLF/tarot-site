@@ -1,12 +1,9 @@
 import type { ReadingResult } from '../domain/tarot'
 import { createReading } from '../engine/reading'
+import { buildLocalDateKey } from './localDate'
 
 export const buildDailySeed = (date: Date = new Date()) => {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-
-  return `daily-${year}-${month}-${day}`
+  return `daily-${buildLocalDateKey(date)}`
 }
 
 export const formatDailyLabel = (date: Date = new Date()) =>

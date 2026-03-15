@@ -3,8 +3,10 @@ import { createReading } from '../engine/reading'
 import {
   buildDailyRecord,
   buildReadingRecordFromReading,
+  exportReadingRecordsJson,
   loadReadingPreferences,
   loadReadingRecords,
+  parseReadingRecordsJson,
   saveReadingPreferences,
   saveReadingRecord,
 } from '../engine/storage'
@@ -149,11 +151,13 @@ describe('reading storage', () => {
   })
   it('stores and reads drawing preferences with safe defaults', () => {
     saveReadingPreferences({
+      deckPerformanceMode: 'lite',
       shuffleSpeed: 'slow',
       orientationMode: 'up-only',
     })
 
     expect(loadReadingPreferences()).toEqual({
+      deckPerformanceMode: 'lite',
       shuffleSpeed: 'slow',
       orientationMode: 'up-only',
     })
@@ -161,15 +165,64 @@ describe('reading storage', () => {
     window.localStorage.setItem(
       'ukiyo-tarot.reading-preferences',
       JSON.stringify({
+        deckPerformanceMode: 'cinema',
         shuffleSpeed: 'bad-value',
         shuffleIntensity: 'high',
       }),
     )
 
     expect(loadReadingPreferences()).toEqual({
+      deckPerformanceMode: 'auto',
       shuffleSpeed: 'normal',
       orientationMode: 'random',
     })
+  })
+
+  it('serializes and parses record exports while preserving normalized order', () => {
+    const first = createReading(
+      {
+        question: '我需要先处理什么？',
+        topic: 'general',
+        spreadId: 'daily-energy',
+      },
+      { seed: 'export-first' },
+    )
+    const second = createReading(
+      {
+        question: '我要如何推进合作？',
+        topic: 'career',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'export-second' },
+    )
+
+    const exported = exportReadingRecordsJson([
+      buildReadingRecordFromReading(first, {
+        recordId: 'first-record',
+        saved: false,
+        title: '第一条',
+        tags: ['daily'],
+        actionPlanDoneIds: [],
+        followUps: [],
+      }),
+      buildReadingRecordFromReading(second, {
+        recordId: 'second-record',
+        saved: true,
+        title: '第二条',
+        tags: ['career'],
+        actionPlanDoneIds: [],
+        followUps: [],
+      }),
+    ])
+
+    const parsed = parseReadingRecordsJson(exported)
+
+    expect(parsed).toHaveLength(2)
+    expect(parsed.map((entry) => entry.id).sort()).toEqual([
+      'first-record',
+      'second-record',
+    ])
   })
 })
 
