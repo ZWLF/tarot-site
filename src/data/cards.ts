@@ -3,6 +3,7 @@ import type { TarotCard } from '../domain/tarot'
 type MinorSuit = Exclude<TarotCard['suit'], null>
 
 interface MajorSeed {
+  encyclopedia?: TarotCard['encyclopedia']
   id: string
   number: number
   nameZh: string
@@ -23,6 +24,8 @@ interface RankConfig {
   upMeaning: string
   downMeaning: string
   adviceTags: string[]
+  encyclopediaAdviceFrame?: string
+  encyclopediaDescriptionFrame?: string
 }
 
 interface SuitConfig {
@@ -34,6 +37,8 @@ interface SuitConfig {
   reversedFrame: string
   adviceTags: string[]
   elementTags: string[]
+  encyclopediaAdviceTone?: string
+  encyclopediaContext?: string
 }
 
 const majorSeeds: MajorSeed[] = [
@@ -325,6 +330,225 @@ const majorSeeds: MajorSeed[] = [
   },
 ]
 
+const MAJOR_ENCYCLOPEDIA_BY_ID: Record<string, TarotCard['encyclopedia']> = {
+  'the-fool': {
+    descriptionZh:
+      '愚者象征尚未被定义的新起点。它不是盲目冒险，而是带着轻盈与信任踏入未知，允许自己在没有完整地图的情况下先迈出第一步。',
+    adviceZh:
+      '保留好奇心，同时给冲动加上一层现实护栏。先用一个小动作开启旅程，而不是等到万事俱备才行动。',
+  },
+  'the-magician': {
+    descriptionZh:
+      '魔术师代表把资源、意志和表达整合为可执行方案的能力。它出现时，往往说明你并不缺工具，真正的关键在于是否愿意主动调度并承担结果。',
+    adviceZh:
+      '盘点手里的能力、时间和盟友，把它们组合成一个具体动作。少一点空想，多一点清晰输出和有意识的推动。',
+  },
+  'the-high-priestess': {
+    descriptionZh:
+      '女祭司对应静默、直觉和潜意识中的答案。它提醒你，在外界喧闹之前，内在其实已经有了微弱但准确的感知，只是还没被听见。',
+    adviceZh:
+      '先暂停解释和证明，给感受一些空间。记录下反复出现的梦、情绪和直觉，再决定下一步，而不是急着表态。',
+  },
+  'the-empress': {
+    descriptionZh:
+      '皇后象征滋养、丰盛与稳定生长的生命力。它不只是获得，更是持续照料与耐心投入之后，事物自然成熟的过程。',
+    adviceZh:
+      '把注意力放到能被培育的关系、项目和身体节奏上。允许缓慢生长，不要因为想立刻见效而过度消耗自己。',
+  },
+  'the-emperor': {
+    descriptionZh:
+      '皇帝代表结构、秩序与边界。它提示你回到规则、责任和可控框架中，用更稳定的方式为局面建立承托，而不是任由情绪主导。',
+    adviceZh:
+      '明确优先级、职责和底线，把含糊地带说清楚。稳定不是僵化，而是让真正重要的部分有一个可靠骨架。',
+  },
+  'the-hierophant': {
+    descriptionZh:
+      '教皇关乎传统、传承和成熟经验的指引。它出现时，往往意味着你可以借助已有系统、前人经验或值得信任的导师，来降低试错成本。',
+    adviceZh:
+      '先理解规则背后的价值，再决定要遵循还是更新它。向可靠的人请教，但不要把外部答案当成替代自我判断的借口。',
+  },
+  'the-lovers': {
+    descriptionZh:
+      '恋人不只谈爱情，更指向价值观与关系中的真实选择。它强调的是对齐，意味着你需要诚实面对自己真正愿意投入什么、放弃什么。',
+    adviceZh:
+      '用真诚代替讨好，用清晰代替拖延。把核心选择说出来，再决定如何承担它带来的亲密与代价。',
+  },
+  'the-chariot': {
+    descriptionZh:
+      '战车象征聚拢分散力量、重新掌舵并向前推进。它往往出现在局面进入加速阶段，但也提醒你，速度必须建立在方向明确之上。',
+    adviceZh:
+      '先收束注意力，再谈冲刺。把内在冲突降到最低，让行动、决心和节奏站在同一阵线。',
+  },
+  strength: {
+    descriptionZh:
+      '力量代表温柔而稳定的强韧。它不是压制，而是能够在高张力时仍旧保持自持，既看见自己的情绪，也不被情绪牵着走。',
+    adviceZh:
+      '用耐心和持续练习代替急躁证明。真正的掌控感来自稳定地陪自己走过不舒服，而不是逼自己立刻变强。',
+  },
+  'the-hermit': {
+    descriptionZh:
+      '隐士象征向内收束、暂时离开噪音并寻找更本真的答案。它提示你，独处不是退场，而是为了看见什么是真正值得继续走的路。',
+    adviceZh:
+      '减少无效输入，给思考和复盘留白。把注意力从别人怎么看，拉回到自己此刻最真实的判断。',
+  },
+  'wheel-of-fortune': {
+    descriptionZh:
+      '命运之轮对应循环、转机与外部时机的转动。它常常意味着局势已开始变化，而你需要识别自己正站在上升、停滞还是转向的节点。',
+    adviceZh:
+      '接受时机本身也是变量，别用旧策略应对新周期。及时调整节奏，抓住已经开始松动的窗口。',
+  },
+  justice: {
+    descriptionZh:
+      '正义强调事实、责任与清晰判断。它要求你把选择放到真实后果里衡量，而不是只依赖一时的情绪、偏好或想象。',
+    adviceZh:
+      '把证据、边界和代价摆到台面上，再做决定。真正的公平从来不是讨好所有人，而是承担自己选择的后果。',
+  },
+  'the-hanged-man': {
+    descriptionZh:
+      '倒吊人意味着主动暂停、换位思考与重新理解。它提醒你，停下来并不是失去推进，而是在为下一轮更准确的行动腾出认知空间。',
+    adviceZh:
+      '别急着把暂停当成失败。先换个角度看问题，允许某些旧解释失效，再决定接下来要放下什么。',
+  },
+  death: {
+    descriptionZh:
+      '死神代表结束、蜕变与不可逆的阶段转换。它不是灾厄，而是提醒你旧的结构已经完成任务，新的生命力只有在腾出空间后才会进入。',
+    adviceZh:
+      '停止给过期关系、模式或身份继续供能。先做收尾与断舍离，再去谈重建和下一段生长。',
+  },
+  temperance: {
+    descriptionZh:
+      '节制象征调和、配比和节奏感。它强调的不是激烈突破，而是通过一点点校准，把冲突的部分重新调成可以共存的状态。',
+    adviceZh:
+      '把“更多”换成“刚刚好”。维持可持续的节奏，让修复、合作和恢复都发生在不过量的范围内。',
+  },
+  'the-devil': {
+    descriptionZh:
+      '恶魔揭示执着、诱惑与被无意识模式绑定的状态。它出现时往往不是说你没有选择，而是你仍在把能量喂给那个熟悉却消耗的循环。',
+    adviceZh:
+      '先承认自己被什么吸住了，再去谈挣脱。把隐形依赖具体化，才有机会切断它的控制力。',
+  },
+  'the-tower': {
+    descriptionZh:
+      '高塔象征骤然崩塌、真相显形与被迫重组。它带来的不适，往往源于旧秩序已经无法继续承载现实，所以必须被拆开重建。',
+    adviceZh:
+      '别把破裂只理解为失去，它同时也是纠偏。先处理最真实的裂缝，再考虑如何搭起新的基础。',
+  },
+  'the-star': {
+    descriptionZh:
+      '星星代表希望、复原和重新接上未来感。经历震荡之后，它把你带回一种更轻、更真诚的状态，让修复重新变得可能。',
+    adviceZh:
+      '给自己留一点恢复和相信的空间。别急着证明已经痊愈，先稳稳接住那一点正在回来的光。',
+  },
+  'the-moon': {
+    descriptionZh:
+      '月亮对应模糊、敏感、梦境与潜意识投射。它说明你正走在看不清全貌的阶段，情绪和想象会被放大，需要特别分辨什么是真感受，什么是旧恐惧。',
+    adviceZh:
+      '别急着下结论，先观察。把反复出现的担忧、画面和情绪写下来，等雾散一些再做关键决定。',
+  },
+  'the-sun': {
+    descriptionZh:
+      '太阳象征清晰、生命力与公开可见的确认。它往往说明局势会越来越明朗，重要信息不再藏着掖着，你也更有条件正面表达自己。',
+    adviceZh:
+      '允许自己站到光里，把好消息、真实需求和创造力都说出来。清楚不是张扬，而是不再缩在阴影里猜测。',
+  },
+  judgement: {
+    descriptionZh:
+      '审判意味着复盘、召唤与更高层次的回应。它要求你从旧故事里醒来，看清哪些经历已经构成了今天的自己，并决定是否要回应真正的召唤。',
+    adviceZh:
+      '别再停在自责或迟疑里。回看过去是为了完成整合，然后带着清醒作出一次更成熟的选择。',
+  },
+  'the-world': {
+    descriptionZh:
+      '世界代表完成、整合与一个阶段的圆满闭环。它说明你已经靠近成果与出口，接下来需要做的是收尾、承认成长，并准备进入新的周期。',
+    adviceZh:
+      '认真完成最后一步，不要因为临门一脚而松散。把成果整理好、安放好，再带着完整感走向下一段旅程。',
+  },
+}
+
+const RANK_ENCYCLOPEDIA_COPY: Record<
+  string,
+  { adviceFrame: string; descriptionFrame: string }
+> = {
+  ace: {
+    descriptionFrame: '新局刚刚展开、灵感冒头',
+    adviceFrame: '从一个小而确定的动作开始，',
+  },
+  two: {
+    descriptionFrame: '多股力量并行、需要取舍与平衡',
+    adviceFrame: '先把彼此拉扯的两端摊开来看，',
+  },
+  three: {
+    descriptionFrame: '局面开始向外扩张、需要协作与回应',
+    adviceFrame: '把资源、人脉和回馈接进来，',
+  },
+  four: {
+    descriptionFrame: '需要暂停加速、回到结构与承托',
+    adviceFrame: '优先稳住基础和边界，',
+  },
+  five: {
+    descriptionFrame: '不适、摩擦或失衡正在推动重整',
+    adviceFrame: '把冲突当成校准信号，',
+  },
+  six: {
+    descriptionFrame: '资源回到手里、局面开始过渡与修复',
+    adviceFrame: '允许支持和反馈重新回流，',
+  },
+  seven: {
+    descriptionFrame: '局面进入判断、等待和策略分辨的阶段',
+    adviceFrame: '先评估再出手，',
+  },
+  eight: {
+    descriptionFrame: '节奏明显加快、执行与训练正在塑形',
+    adviceFrame: '把注意力放回持续训练，',
+  },
+  nine: {
+    descriptionFrame: '事情接近收成，但代价和疲劳也变明显',
+    adviceFrame: '承认自己已经走了很远，',
+  },
+  ten: {
+    descriptionFrame: '一个周期走向完成，结果与负担并行出现',
+    adviceFrame: '认真处理收尾与交接，',
+  },
+  page: {
+    descriptionFrame: '新的消息、线索或试探动作刚刚出现',
+    adviceFrame: '保持学习者姿态，',
+  },
+  knight: {
+    descriptionFrame: '能量向外冲刺、需要推进或主动出击',
+    adviceFrame: '先校准方向再加速，',
+  },
+  queen: {
+    descriptionFrame: '你已具备承接局面的成熟度，需要稳稳拿住',
+    adviceFrame: '把照料和判断放在同一条线上，',
+  },
+  king: {
+    descriptionFrame: '局面需要定盘、统筹和成熟输出',
+    adviceFrame: '用清晰的结构来承担领导位置，',
+  },
+}
+
+const SUIT_ENCYCLOPEDIA_COPY: Record<
+  MinorSuit,
+  { adviceTone: string; context: string }
+> = {
+  wands: {
+    adviceTone: '把冲劲导向真正重要的目标',
+    context: '行动、创造冲动与个人野心的场域',
+  },
+  cups: {
+    adviceTone: '先承认真实感受，再决定如何表达和回应',
+    context: '情绪、关系连结与内在需求的场域',
+  },
+  swords: {
+    adviceTone: '把模糊问题说清楚、写清楚、切清楚',
+    context: '思考、沟通与边界整理的场域',
+  },
+  pentacles: {
+    adviceTone: '回到现实条件，稳住节奏和资源配置',
+    context: '资源、身体节奏与长期建设的场域',
+  },
+}
+
 const rankConfigs: RankConfig[] = [
   { slug: 'ace', labelZh: '王牌', labelEn: 'Ace', number: 1, upKeywords: ['开端', '火种', '机会'], downKeywords: ['迟疑', '未定', '空转'], upMeaning: '新的起点已经出现，适合尽快确认你真正想启动的方向。', downMeaning: '机会仍在，但你还需要把意图和现实条件对齐。', adviceTags: ['start-small', 'clarity'] },
   { slug: 'two', labelZh: '二', labelEn: 'Two', number: 2, upKeywords: ['平衡', '选择', '对照'], downKeywords: ['摇摆', '拉扯', '犹疑'], upMeaning: '两种力量正在对照，你有机会做出更精准的选择。', downMeaning: '如果继续摇摆不定，窗口期会被反复消耗。', adviceTags: ['balance', 'decide'] },
@@ -351,6 +575,12 @@ const suitConfigs: Record<MinorSuit, SuitConfig> = {
 
 const createMinorCard = (suit: MinorSuit, rank: RankConfig): TarotCard => {
   const suitConfig = suitConfigs[suit]
+  const rankCopy = RANK_ENCYCLOPEDIA_COPY[rank.slug]
+  const suitCopy = SUIT_ENCYCLOPEDIA_COPY[suit]
+  const encyclopedia = {
+    descriptionZh: `${suitConfig.labelZh}${rank.labelZh}常常出现在${rankCopy.descriptionFrame}，并且事情正被拉进${suitCopy.context}的阶段。它提醒你不仅要看单次事件，还要看这组花色背后的长期模式正在怎样塑造眼前局面。`,
+    adviceZh: `${rankCopy.adviceFrame}${suitCopy.adviceTone}。先落实成一个看得见的小动作，再根据现实反馈微调节奏。`,
+  }
 
   return {
     id: `${rank.slug}-of-${suit}`,
@@ -359,6 +589,7 @@ const createMinorCard = (suit: MinorSuit, rank: RankConfig): TarotCard => {
     arcana: 'minor',
     suit,
     number: rank.number,
+    encyclopedia,
     keywords: {
       up: [...rank.upKeywords, ...suitConfig.upKeywords],
       down: [...rank.downKeywords, ...suitConfig.downKeywords],
@@ -379,6 +610,7 @@ const majorArcana: TarotCard[] = majorSeeds.map((seed) => ({
   arcana: 'major',
   suit: null,
   number: seed.number,
+  encyclopedia: seed.encyclopedia ?? MAJOR_ENCYCLOPEDIA_BY_ID[seed.id],
   keywords: seed.keywords,
   meaning: seed.meaning,
   adviceTags: seed.adviceTags,

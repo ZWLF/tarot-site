@@ -355,7 +355,7 @@ export const buildReadingRecordFromReading = (
 export const buildDailyRecord = (
   reading: ReadingResult,
   date: Date,
-  reflection: DailyReflection,
+  reflection: DailyReflection = createBaseReflection(),
 ): ReadingRecordV2 => {
   const iso = date.toISOString()
 

@@ -4,34 +4,25 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  padding-top: 40px;
-  padding-bottom: 56px;
+  padding-top: 32px;
+  padding-bottom: 48px;
   background: var(--bg-night);
 }
 
-.deck-vortex-heading,
-.deck-vortex-lede {
-  width: 100%;
-}
-
 .deck-vortex-heading {
+  width: 100%;
   max-width: 1180px;
-}
-
-.deck-vortex-lede {
-  max-width: 52rem;
-  margin: 0;
 }
 
 .deck-vortex-container {
   position: relative;
   width: min(100%, 1180px);
-  height: 700px;
+  height: 620px;
   display: flex;
   justify-content: center;
   align-items: center;
-  perspective: 1200px;
-  perspective-origin: 50% 42%;
+  perspective: 1100px;
+  perspective-origin: 50% 50%;
   transform-style: preserve-3d;
   animation: celestial-wheel 120s linear infinite;
   background: var(--bg-night);
@@ -46,17 +37,19 @@
   transition:
     opacity 220ms ease,
     filter 220ms ease;
-  filter: grayscale(0.18) brightness(0.9);
+  filter: grayscale(0.14) brightness(0.92);
+  will-change: transform, opacity, filter;
 }
 
 .deck-vortex-card-floater {
   position: absolute;
   left: 0;
   top: 0;
-  width: 112px;
+  width: 104px;
   transform-style: preserve-3d;
   animation: floating-paper 3s ease-in-out infinite alternate;
   animation-delay: var(--float-delay, 0s);
+  will-change: transform;
 }
 
 .deck-vortex-card-visual {
@@ -65,27 +58,30 @@
     transform 360ms cubic-bezier(0.25, 1, 0.5, 1),
     filter 220ms ease,
     opacity 220ms ease;
+  will-change: transform, opacity;
 }
 
-.deck-vortex-container:hover .deck-vortex-card-positioner:not(.is-hovered) {
-  opacity: 0.5;
-  filter: grayscale(0.6) brightness(0.8);
-}
+@media (hover: hover) and (pointer: fine) {
+  .deck-vortex-container:hover .deck-vortex-card-positioner:not(.is-hovered) {
+    opacity: 0.56;
+    filter: grayscale(0.48) brightness(0.84);
+  }
 
-.deck-vortex-card-positioner.is-hovered {
-  filter: grayscale(0) brightness(1);
-}
+  .deck-vortex-card-positioner.is-hovered {
+    filter: grayscale(0) brightness(1);
+  }
 
-.deck-vortex-card-positioner.is-hovered .deck-vortex-card-floater {
-  animation-play-state: paused;
-}
+  .deck-vortex-card-positioner.is-hovered .deck-vortex-card-floater {
+    animation-play-state: paused;
+  }
 
-.deck-vortex-card-positioner.is-hovered .deck-vortex-card-visual {
-  transform: scale(1.08);
+  .deck-vortex-card-positioner.is-hovered .deck-vortex-card-visual {
+    transform: scale(1.06);
+  }
 }
 
 .deck-vortex-card-positioner.is-highlighted {
-  filter: grayscale(0) brightness(1.08) drop-shadow(0 22px 44px rgba(0, 0, 0, 0.34));
+  filter: grayscale(0) brightness(1.08) drop-shadow(0 20px 40px rgba(0, 0, 0, 0.34));
 }
 
 @keyframes celestial-wheel {
@@ -110,25 +106,27 @@
 
 @media (max-width: 960px) {
   .deck-vortex-container {
-    height: 600px;
+    height: 500px;
+    perspective: 960px;
   }
 
   .deck-vortex-card-floater {
-    width: 98px;
+    width: 90px;
   }
 }
 
 @media (max-width: 640px) {
   .deck-vortex-section {
-    padding-top: 32px;
-    padding-bottom: 40px;
+    padding-top: 24px;
+    padding-bottom: 24px;
   }
 
   .deck-vortex-container {
-    height: 520px;
+    height: 320px;
+    perspective: 800px;
   }
 
   .deck-vortex-card-floater {
-    width: 84px;
+    width: 72px;
   }
 }

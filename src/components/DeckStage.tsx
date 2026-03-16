@@ -16,26 +16,26 @@ const resolveDeckElementCount = (
   viewportWidth: number,
 ) => {
   if (performanceMode === 'full') {
-    return 150
+    return 80
   }
 
   if (performanceMode === 'lite') {
-    return 60
+    return 40
   }
 
   if (reduceMotion) {
-    return 42
+    return 24
   }
 
   if (viewportWidth < 640) {
-    return 48
+    return 24
   }
 
   if (viewportWidth < 1024) {
-    return 96
+    return 60
   }
 
-  return 150
+  return 80
 }
 
 export function DeckStage({
@@ -53,12 +53,14 @@ export function DeckStage({
 
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   })
+
   const highlightedSet = new Set(highlightedCardIds)
-  const totalElements = Math.max(
-    TAROT_DECK.length,
-    resolveDeckElementCount(performanceMode, reduceMotion, viewportWidth),
+  const totalElements = resolveDeckElementCount(
+    performanceMode,
+    reduceMotion,
+    viewportWidth,
   )
-  const scaleFactor = Math.min(viewportWidth / 1180, 1)
+  const scaleFactor = Math.max(Math.min(viewportWidth / 1180, 1), 0.58)
   const firstHighlightIndexByCardId = new Map<string, number>()
 
   useEffect(() => {
@@ -100,25 +102,21 @@ export function DeckStage({
           <p className="eyebrow">The Archive</p>
           <h2>浮世档案台</h2>
         </div>
-        <span className="section__count">{totalElements} 阵列 · 78 张牌循环</span>
+        <span className="section__count">{totalElements} 阵列 / 流畅优先</span>
       </div>
-
-      <p className="section__lede deck-vortex-lede">
-        78 张牌不再平铺陈列，而是像一段缓慢上升的档案旋涡。抽中的牌会先在阵列里显影，再进入本次牌阵。
-      </p>
 
       <div className="deck-vortex-container">
         {Array.from({ length: totalElements }, (_, index) => {
           const card = TAROT_DECK[index % TAROT_DECK.length]
-          const progress = index / totalElements
-          const angle = index * 0.5
-          const exponentialRadius = Math.pow(progress, 1.8) * 800 * scaleFactor
-          const x = Math.cos(angle) * exponentialRadius
-          const y = Math.sin(angle) * exponentialRadius * 0.76
-          const zDepth = (progress - 1) * 2500
+          const progress = index / Math.max(totalElements - 1, 1)
+          const angle = index * 0.58
+          const spiralRadius = Math.pow(progress, 1.65) * 640 * scaleFactor
+          const x = Math.cos(angle) * spiralRadius
+          const y = Math.sin(angle) * spiralRadius * 0.62
+          const zDepth = (progress - 1) * 1800
           const rotation = (angle * 180) / Math.PI + 90
-          const baseScale = (0.2 + progress * 0.4) * scaleFactor
-          const fadeOpacity = Math.max(0, (progress - 0.1) * 1.5)
+          const baseScale = (0.26 + progress * 0.32) * scaleFactor
+          const fadeOpacity = Math.max(0.18, 0.32 + progress * 0.72)
           const isHovered = hoveredInstanceIndex === index
           const isHighlighted = firstHighlightIndexByCardId.get(card.id) === index
           const imageProfile =
@@ -140,12 +138,14 @@ export function DeckStage({
                 .join(' ')}
               onMouseEnter={() => setHoveredInstanceIndex(index)}
               onMouseLeave={() => setHoveredInstanceIndex(null)}
-              style={{
-                transform: `translate3d(${x}px, ${y}px, ${zDepth}px) rotate(${rotation}deg) scale(${baseScale})`,
-                zIndex: isHovered ? 300 : index + 1,
-                '--card-opacity': fadeOpacity.toString(),
-                '--float-delay': `-${index * 0.05}s`,
-              } as CSSProperties}
+              style={
+                {
+                  transform: `translate3d(${x}px, ${y}px, ${zDepth}px) rotate(${rotation}deg) scale(${baseScale})`,
+                  zIndex: isHovered ? 300 : index + 1,
+                  '--card-opacity': fadeOpacity.toString(),
+                  '--float-delay': `-${index * 0.05}s`,
+                } as CSSProperties
+              }
             >
               <div className="deck-vortex-card-floater">
                 <TarotCardFigure

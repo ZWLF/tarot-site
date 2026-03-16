@@ -8,15 +8,12 @@ import {
   useState,
 } from 'react'
 import './App.css'
-import { DeckStage } from './components/DeckStage'
 import { GuidePanel } from './components/GuidePanel'
 import { LazySection } from './components/LazySection'
 import { RevealText } from './components/RevealText'
 import {
   buildDailyRecord,
   loadGuideDismissed,
-  loadReadingPreferences,
-  saveReadingPreferences,
   storeGuideDismissed,
 } from './engine/storage'
 import { TOPIC_BY_ID } from './data/topics'
@@ -39,6 +36,12 @@ const CardEncyclopedia = lazy(async () => {
   const module = await import('./components/CardEncyclopedia')
   return { default: module.CardEncyclopedia }
 })
+
+const FIXED_READING_PREFERENCES: ReadingPreferences = {
+  shuffleSpeed: 'normal',
+  orientationMode: 'random',
+  deckPerformanceMode: 'full',
+}
 
 interface AppProps {
   shuffleDelayMs?: number
@@ -94,9 +97,6 @@ function App({ shuffleDelayMs }: AppProps) {
   const [recordDateFilter, setRecordDateFilter] = useState<'all' | '7d' | '30d'>('all')
   const [compareSelection, setCompareSelection] = useState<string[]>([])
   const [guideDismissed, setGuideDismissed] = useState(() => loadGuideDismissed())
-  const [preferences, setPreferences] = useState<ReadingPreferences>(() =>
-    loadReadingPreferences(),
-  )
   const [recordsMessage, setRecordsMessage] = useState<string | null>(null)
   const importInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -114,10 +114,8 @@ function App({ shuffleDelayMs }: AppProps) {
     dailyLabel,
     dailyMessage,
     dailyReading,
-    dailyReflection,
     dailyRevealed,
     setDailyMessage,
-    setDailyReflection,
     setDailyRevealed,
   } = useDailyReadingState()
 
@@ -126,7 +124,7 @@ function App({ shuffleDelayMs }: AppProps) {
       setNavSection('result')
       window.requestAnimationFrame(() => scrollToSection('result'))
     },
-    preferences,
+    preferences: FIXED_READING_PREFERENCES,
     records,
     shuffleDelayMs,
     upsertRecord,
@@ -146,10 +144,6 @@ function App({ shuffleDelayMs }: AppProps) {
   useEffect(() => {
     storeGuideDismissed(guideDismissed)
   }, [guideDismissed])
-
-  useEffect(() => {
-    saveReadingPreferences(preferences)
-  }, [preferences])
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') {
@@ -180,10 +174,14 @@ function App({ shuffleDelayMs }: AppProps) {
     return () => observer.disconnect()
   }, [storageReady])
 
-  const handleSaveDaily = () => {
-    const nextRecord = buildDailyRecord(dailyReading, dailyDate, dailyReflection)
+  const handleRevealDaily = () => {
+    if (dailyRevealed) {
+      return
+    }
+
+    const nextRecord = buildDailyRecord(dailyReading, dailyDate)
     upsertRecord(nextRecord)
-    setDailyMessage('今日记录已写入记录中心。')
+    setDailyRevealed(true)
   }
 
   const handleShareDaily = async () => {
@@ -328,13 +326,10 @@ function App({ shuffleDelayMs }: AppProps) {
         <DailyPanel
           dailyLabel={dailyLabel}
           dailyMessage={dailyMessage}
-          dailyReflection={dailyReflection}
           dailyRevealed={dailyRevealed}
           entry={dailyReading.cards[0]}
           onDownloadPoster={handleDownloadDailyPoster}
-          onReflectionChange={setDailyReflection}
-          onReveal={() => setDailyRevealed(true)}
-          onSave={handleSaveDaily}
+          onReveal={handleRevealDaily}
           onShare={handleShareDaily}
         />
 
@@ -354,8 +349,6 @@ function App({ shuffleDelayMs }: AppProps) {
           onSelectSpread={readingSession.handleSelectSpread}
           onSelectTopic={readingSession.updateTopic}
           onSelectVariant={readingSession.updateVariant}
-          onUpdatePreferences={setPreferences}
-          preferences={preferences}
           question={readingSession.question}
           selectedSpread={readingSession.selectedSpread}
           selectedTopic={readingSession.selectedTopic}
@@ -363,11 +356,6 @@ function App({ shuffleDelayMs }: AppProps) {
           spreadId={readingSession.spreadId}
           topic={readingSession.topic}
           variantId={readingSession.variantId}
-        />
-
-        <DeckStage
-          highlightedCardIds={readingSession.deckHighlights}
-          performanceMode={preferences.deckPerformanceMode}
         />
 
         <ReadingResultSection
