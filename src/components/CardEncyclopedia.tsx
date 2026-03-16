@@ -11,6 +11,7 @@ interface CardEncyclopediaProps {
 }
 
 type EncyclopediaScope = 'drawn' | 'all'
+type EncyclopediaGroupFilter = 'all' | 'major' | 'wands' | 'cups' | 'swords' | 'pentacles'
 
 const TOPIC_TAG_MAP: Record<TopicId, string[]> = {
   general: ['clarity', 'balance', 'ground', 'complete', 'adapt'],
@@ -19,6 +20,15 @@ const TOPIC_TAG_MAP: Record<TopicId, string[]> = {
   relationships: ['communicate', 'boundaries', 'receive', 'collaborate', 'self-honesty'],
   growth: ['heal', 'observe', 'release', 'rest', 'patience', 'trust'],
 }
+
+const GROUP_FILTERS: Array<{ id: EncyclopediaGroupFilter; label: string }> = [
+  { id: 'all', label: '全部' },
+  { id: 'major', label: '大阿尔卡那' },
+  { id: 'wands', label: '权杖' },
+  { id: 'cups', label: '圣杯' },
+  { id: 'swords', label: '宝剑' },
+  { id: 'pentacles', label: '星币' },
+]
 
 const scoreCardTopics = (card: TarotCard) => {
   const scores: Record<TopicId, number> = {
@@ -61,6 +71,18 @@ const scoreCardTopics = (card: TarotCard) => {
     .map(([topicId]) => topicId)
 }
 
+const matchesGroupFilter = (card: TarotCard, groupFilter: EncyclopediaGroupFilter) => {
+  if (groupFilter === 'all') {
+    return true
+  }
+
+  if (groupFilter === 'major') {
+    return card.arcana === 'major'
+  }
+
+  return card.suit === groupFilter
+}
+
 const matchesQuery = (card: TarotCard, rawQuery: string) => {
   const query = rawQuery.trim().toLowerCase()
 
@@ -75,6 +97,7 @@ const matchesQuery = (card: TarotCard, rawQuery: string) => {
 
 export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
   const [scope, setScope] = useState<EncyclopediaScope>('drawn')
+  const [groupFilter, setGroupFilter] = useState<EncyclopediaGroupFilter>('all')
   const [query, setQuery] = useState('')
   const [selectedCardId, setSelectedCardId] = useState<string | null>(
     featuredCardIds[0] ?? TAROT_DECK[0]?.id ?? null,
@@ -82,19 +105,17 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
   const deferredQuery = useDeferredValue(query)
 
   const featuredCards = TAROT_DECK.filter((card) => featuredCardIds.includes(card.id))
-  const sourceCards =
-    scope === 'drawn'
-      ? featuredCards
-      : TAROT_DECK
-  const visibleCards = sourceCards.filter((card) => matchesQuery(card, deferredQuery))
+  const scopeCards = scope === 'drawn' ? featuredCards : TAROT_DECK
+  const filteredByGroup = scopeCards.filter((card) => matchesGroupFilter(card, groupFilter))
+  const visibleCards = filteredByGroup.filter((card) => matchesQuery(card, deferredQuery))
   const resolvedSelectedCardId =
-    selectedCardId !== null && sourceCards.some((card) => card.id === selectedCardId)
+    selectedCardId !== null && filteredByGroup.some((card) => card.id === selectedCardId)
       ? selectedCardId
-      : sourceCards[0]?.id ?? null
+      : visibleCards[0]?.id ?? filteredByGroup[0]?.id ?? null
 
   const selectedCard =
     visibleCards.find((card) => card.id === resolvedSelectedCardId) ??
-    sourceCards.find((card) => card.id === resolvedSelectedCardId) ??
+    filteredByGroup.find((card) => card.id === resolvedSelectedCardId) ??
     null
 
   return (
@@ -104,11 +125,13 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
           <p className="eyebrow">Step 09</p>
           <RevealText as="h2" text="78 张牌卡百科" />
         </div>
-        <span className="section__count">{scope === 'drawn' ? '本次抽到的牌' : '完整牌库'}</span>
+        <span className="section__count">
+          {scope === 'drawn' ? '本次抽到的牌' : '完整牌库'}
+        </span>
       </div>
 
       <p className="selection-note encyclopedia-note">
-        抽完牌后可以继续点进单张牌，查看正位/逆位、关键词、牌义和更适合延伸阅读的主题。
+        抽完牌后，可以继续点进单张牌，查看正位、逆位、关键词、延伸解读和更适合延伸阅读的主题。
       </p>
 
       <div className="utility-row">
@@ -142,8 +165,26 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
         </label>
       </div>
 
+      <div className="encyclopedia-group-filter">
+        {GROUP_FILTERS.map((entry) => (
+          <button
+            key={entry.id}
+            className={`pill ${groupFilter === entry.id ? 'is-active' : ''}`}
+            type="button"
+            onClick={() => setGroupFilter(entry.id)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
       <div className="encyclopedia-layout">
-        <div className="encyclopedia-list" role="list" aria-label="牌卡列表">
+        <div
+          className="encyclopedia-list encyclopedia-list--scroll"
+          role="list"
+          aria-label="牌卡列表"
+          data-testid="encyclopedia-list"
+        >
           {visibleCards.length > 0 ? (
             visibleCards.map((card) => (
               <button
@@ -167,7 +208,7 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
           )}
         </div>
 
-        {selectedCard !== null ? (
+        {selectedCard ? (
           <article className="encyclopedia-detail">
             <div className="encyclopedia-detail__header">
               <div>
@@ -185,45 +226,61 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
               </span>
             </div>
 
-            <div className="encyclopedia-detail__card-shell">
-              <TarotCardFigure
-                art={CARD_ART_MANIFEST[selectedCard.id]}
-                card={selectedCard}
-                className="encyclopedia-detail__card"
-                revealed
-              />
-            </div>
+            <div className="encyclopedia-detail__body">
+              <div className="encyclopedia-detail__card-shell">
+                <TarotCardFigure
+                  art={CARD_ART_MANIFEST[selectedCard.id]}
+                  card={selectedCard}
+                  className="encyclopedia-detail__card"
+                  revealed
+                />
+              </div>
 
-            <div className="encyclopedia-detail__crease" aria-hidden="true" />
-
-            <div className="signal-strip">
-              {scoreCardTopics(selectedCard).map((topicId) => (
-                <span key={topicId}>{TOPIC_BY_ID[topicId].label}</span>
-              ))}
-            </div>
-
-            <div className="encyclopedia-columns">
-              <section className="result-panel">
-                <p className="eyebrow">Upright</p>
-                <h4>正位</h4>
+              <div className="encyclopedia-detail__content">
                 <div className="signal-strip">
-                  {selectedCard.keywords.up.map((keyword, index) => (
-                    <span key={`${selectedCard.id}-up-${keyword}-${index}`}>{keyword}</span>
+                  {scoreCardTopics(selectedCard).map((topicId) => (
+                    <span key={topicId}>{TOPIC_BY_ID[topicId].label}</span>
                   ))}
                 </div>
-                <p>{selectedCard.meaning.up}</p>
-              </section>
 
-              <section className="result-panel">
-                <p className="eyebrow">Reversed</p>
-                <h4>逆位</h4>
-                <div className="signal-strip">
-                  {selectedCard.keywords.down.map((keyword, index) => (
-                    <span key={`${selectedCard.id}-down-${keyword}-${index}`}>{keyword}</span>
-                  ))}
+                <div className="encyclopedia-columns">
+                  <section className="result-panel">
+                    <p className="eyebrow">Upright</p>
+                    <h4>正位</h4>
+                    <div className="signal-strip">
+                      {selectedCard.keywords.up.map((keyword, index) => (
+                        <span key={`${selectedCard.id}-up-${keyword}-${index}`}>{keyword}</span>
+                      ))}
+                    </div>
+                    <p>{selectedCard.meaning.up}</p>
+                  </section>
+
+                  <section className="result-panel">
+                    <p className="eyebrow">Reversed</p>
+                    <h4>逆位</h4>
+                    <div className="signal-strip">
+                      {selectedCard.keywords.down.map((keyword, index) => (
+                        <span key={`${selectedCard.id}-down-${keyword}-${index}`}>{keyword}</span>
+                      ))}
+                    </div>
+                    <p>{selectedCard.meaning.down}</p>
+                  </section>
                 </div>
-                <p>{selectedCard.meaning.down}</p>
-              </section>
+
+                <div className="encyclopedia-insights">
+                  <section className="result-panel">
+                    <p className="eyebrow">Deep Dive</p>
+                    <h4>延伸解读</h4>
+                    <p>{selectedCard.encyclopedia.descriptionZh}</p>
+                  </section>
+
+                  <section className="result-panel">
+                    <p className="eyebrow">Practice</p>
+                    <h4>实践建议</h4>
+                    <p>{selectedCard.encyclopedia.adviceZh}</p>
+                  </section>
+                </div>
+              </div>
             </div>
           </article>
         ) : null}

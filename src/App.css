@@ -197,6 +197,31 @@
   color: rgba(240, 228, 205, 0.48);
 }
 
+.question-suggestions {
+  display: grid;
+  gap: 10px;
+  margin: -10px 0 20px;
+}
+
+.question-suggestions__label {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+}
+
+.question-suggestions__list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.question-suggestions__pill {
+  min-width: auto;
+  padding: 0.55rem 0;
+  white-space: nowrap;
+}
+
 .topic-selector {
   position: relative;
   z-index: 1;
@@ -344,9 +369,9 @@
 .spread-grid {
   position: relative;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
 }
 
 .spread-card {
@@ -443,6 +468,23 @@
   align-content: start;
 }
 
+.daily-revealed-content {
+  display: grid;
+  gap: 16px;
+}
+
+.daily-guidance-panel h3 {
+  margin: 0;
+}
+
+.daily-guidance-panel p:last-child {
+  line-height: 1.7;
+}
+
+.daily-revealed-content__actions {
+  margin-bottom: 4px;
+}
+
 .daily-copy__block,
 .archive-card__block {
   display: grid;
@@ -515,12 +557,6 @@
   gap: 12px;
 }
 
-.draw-preferences {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-}
-
 .draw-summary__row {
   display: grid;
   gap: 6px;
@@ -553,10 +589,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  align-items: center;
 }
 
 .primary-button,
 .ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.9rem 1.4rem;
   border-radius: 999px;
   font-weight: 600;
@@ -572,6 +612,15 @@
   color: var(--text-main);
   background: transparent;
   border: 1px solid rgba(205, 168, 105, 0.42);
+}
+
+.ghost-button--icon-only {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.05rem;
 }
 
 .primary-button:disabled,
@@ -717,18 +766,89 @@
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 20px;
+  margin-top: 18px;
 }
 
 .result-panel {
   display: grid;
   gap: 12px;
-  padding: 16px 0;
+  padding: 18px 0;
   border: 0;
   border-bottom: 1px solid rgba(205, 168, 105, 0.2);
   border-radius: 0;
   background: transparent;
+}
+
+.result-panel__stack {
+  display: grid;
+  gap: 12px;
+}
+
+.result-panel__divider {
+  width: min(100%, 22rem);
+  height: 1px;
+  background: rgba(205, 168, 105, 0.24);
+}
+
+.result-panel--highlighted {
+  gap: 16px;
+  padding: 22px 20px;
+  border: 1px solid rgba(205, 168, 105, 0.28);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(205, 168, 105, 0.08), rgba(205, 168, 105, 0.02));
+}
+
+.result-panel--footer {
+  gap: 16px;
+  padding: 24px 20px;
+  border: 1px solid rgba(205, 168, 105, 0.24);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(11, 11, 11, 0.98), rgba(20, 20, 20, 0.96));
+}
+
+.result-panel--accordion {
+  border-bottom-color: rgba(205, 168, 105, 0.24);
+}
+
+.result-panel--accordion details {
+  display: grid;
+  gap: 18px;
+}
+
+.result-panel--accordion summary {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.result-panel--accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.result-panel__body {
+  display: grid;
+  gap: 16px;
+}
+
+.result-actions--primary {
+  margin-top: 12px;
+}
+
+.result-actions__primary {
+  flex: 1 1 16rem;
+}
+
+.result-actions__secondary {
+  display: flex;
+  gap: 8px;
+}
+
+.result-actions__notice {
+  margin-top: 10px;
 }
 
 .question-echo {
@@ -887,6 +1007,13 @@
   margin-bottom: 18px;
 }
 
+.encyclopedia-group-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
 .encyclopedia-layout {
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: clamp(1.5rem, 3vw, 3.4rem);
@@ -897,6 +1024,12 @@
   gap: 0;
   align-content: start;
   padding-right: 1.1rem;
+}
+
+.encyclopedia-list--scroll {
+  max-height: min(70vh, 54rem);
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
 .encyclopedia-chip {
@@ -932,10 +1065,10 @@
 .encyclopedia-detail {
   display: grid;
   gap: 18px;
-  position: sticky;
-  top: 80px;
+  position: relative;
+  top: 0;
   align-self: start;
-  padding: 0 0 0 1.2rem;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -965,10 +1098,19 @@
   width: 100%;
 }
 
+.encyclopedia-detail__body {
+  display: grid;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.encyclopedia-detail__content {
+  display: grid;
+  gap: 18px;
+}
+
 .encyclopedia-detail__crease {
-  width: min(70%, 320px);
-  height: 1px;
-  background: rgba(205, 168, 105, 0.6);
+  display: none;
 }
 
 .encyclopedia-columns {
@@ -978,7 +1120,16 @@
   align-items: start;
 }
 
+.encyclopedia-insights {
+  display: grid;
+  gap: 16px;
+}
+
 @media (min-width: 760px) {
+  .spread-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .card-grid,
   .result-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1037,6 +1188,10 @@
   .history-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .encyclopedia-detail__body {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1082,9 +1237,23 @@
   .archive-card__meta,
   .archive-toolbar,
   .history-card summary,
-  .encyclopedia-detail__header {
+  .encyclopedia-detail__header,
+  .result-panel--accordion summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .result-actions--primary {
+    align-items: stretch;
+  }
+
+  .result-actions__secondary {
+    width: 100%;
+  }
+
+  .result-actions__secondary .ghost-button--icon-only {
+    flex: 1 1 0;
+    width: auto;
   }
 }
 
@@ -1092,6 +1261,22 @@
   from {
     opacity: 0;
     transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-block {
+  animation: fade-in-block 280ms ease both;
+}
+
+@keyframes fade-in-block {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 
   to {
@@ -1150,13 +1335,39 @@
     grid-template-columns: 1fr;
   }
 
+  .encyclopedia-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding-right: 0;
+  }
+
+  .encyclopedia-list--scroll {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .encyclopedia-chip {
+    padding: 0.95rem 0.8rem;
+    border: 1px solid rgba(205, 168, 105, 0.16);
+    border-left: 1px solid rgba(205, 168, 105, 0.16);
+  }
+
+  .encyclopedia-chip:hover {
+    transform: translateY(-2px);
+  }
+
   .encyclopedia-detail {
     position: relative;
     top: 0;
     padding-left: 0;
   }
 
-  .encyclopedia-columns {
+  .encyclopedia-detail__body {
+    grid-template-columns: 1fr;
+  }
+
+  .encyclopedia-columns,
+  .encyclopedia-insights {
     grid-template-columns: 1fr;
   }
 }
@@ -1272,14 +1483,17 @@
   position: relative;
   z-index: 1;
   display: flex;
-  justify-content: space-between;
   gap: 12px;
 }
 .tarot-card-figure__header {
+  justify-content: flex-end;
   color: rgba(19, 35, 50, 0.68);
   font-size: 0.74rem;
   letter-spacing: 0.08rem;
   text-transform: uppercase;
+}
+.tarot-card-figure__footer {
+  justify-content: space-between;
 }
 .tarot-card-figure__frame {
   position: relative;

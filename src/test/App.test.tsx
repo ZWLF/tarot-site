@@ -16,17 +16,22 @@ describe('App tarot flow', () => {
     ).toBeInTheDocument()
     expect(container.querySelector('.particle-layer')).not.toBeInTheDocument()
     expect(container.querySelector('.app-shell__mist')).not.toBeInTheDocument()
-    expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(150)
+    expect(screen.queryByTestId('advanced-settings-panel')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('advanced-settings-toggle')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('晨间意图')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('晚间复盘')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '保存今日记录' })).not.toBeInTheDocument()
   })
 
   it(
-    'shows all 150 cards on the deck stage and completes a holy triangle reading',
+    'completes a holy triangle reading with the streamlined studio controls',
     async () => {
       const user = userEvent.setup()
 
       render(<App shuffleDelayMs={0} />)
 
-      expect(screen.getAllByTestId('deck-stage-card')).toHaveLength(150)
+      expect(screen.queryByTestId('advanced-settings-panel')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('advanced-settings-toggle')).not.toBeInTheDocument()
 
       const questionText = '我接下来该怎样处理这段关系？'
 
@@ -41,6 +46,9 @@ describe('App tarot flow', () => {
       expect(screen.getByText('现状')).toBeInTheDocument()
       expect(screen.getByText('阻碍')).toBeInTheDocument()
       expect(screen.getByText('建议')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '分享文案' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '下载海报' })).toBeInTheDocument()
+      expect(screen.getByTestId('follow-up-accordion')).not.toHaveAttribute('open')
 
       await user.click(screen.getByRole('button', { name: '全部揭晓' }))
 
@@ -62,25 +70,23 @@ describe('App tarot flow', () => {
   )
 
   it(
-    'supports daily reflection and records it in the record center',
+    'reveals daily guidance and auto-archives it in the record center',
     async () => {
       const user = userEvent.setup()
 
       render(<App shuffleDelayMs={0} />)
 
+      expect(screen.queryByLabelText('晨间意图')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('晚间复盘')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '保存今日记录' })).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: '揭晓今日能量' }))
-      fireEvent.change(screen.getByLabelText('晨间意图'), {
-        target: { value: '今天要稳住节奏' },
-      })
-      fireEvent.change(screen.getByLabelText('晚间复盘'), {
-        target: { value: '晚上的节奏确实更稳了。' },
-      })
-      await user.click(screen.getByRole('button', { name: '强共鸣' }))
-      await user.click(screen.getByRole('button', { name: '保存今日记录' }))
+      expect(screen.getByTestId('daily-revealed-content')).toBeInTheDocument()
+      const guidanceCard = screen.getByRole('heading', { name: '核心指引' }).closest('article')
+      expect(guidanceCard).toBeInTheDocument()
+      expect(guidanceCard?.textContent?.trim().length ?? 0).toBeGreaterThan(24)
       await user.click(screen.getByRole('button', { name: '每日一张' }))
 
-      expect(screen.getByText('今天要稳住节奏')).toBeInTheDocument()
-      expect(screen.getAllByText('晚上的节奏确实更稳了。').length).toBeGreaterThan(0)
+      expect(screen.getByText(/每日一张 ·/)).toBeInTheDocument()
     },
     10000,
   )

@@ -1,9 +1,9 @@
+import { TOPIC_BY_ID } from '../data/topics'
+import type { ReadingResult } from '../domain/tarot'
 import { BlurText } from '../components/BlurText'
+import { StatusMessage } from '../components/StatusMessage'
 import { RevealText } from '../components/RevealText'
 import { SpreadLayoutBoard } from '../components/SpreadLayoutBoard'
-import { StatusMessage } from '../components/StatusMessage'
-import type { ReadingResult } from '../domain/tarot'
-import { TOPIC_BY_ID } from '../data/topics'
 
 interface ReadingResultSectionProps {
   actionPlanDoneIds: string[]
@@ -78,17 +78,36 @@ export function ReadingResultSection({
             ))}
           </div>
 
-          <div className="result-actions">
-            <button className="primary-button" type="button" onClick={onRevealAll}>
+          <div className="result-actions result-actions--primary">
+            <button
+              className="primary-button result-actions__primary"
+              type="button"
+              onClick={onRevealAll}
+            >
               全部揭晓
             </button>
-            <button className="ghost-button" type="button" onClick={onShareReading}>
-              分享文案
-            </button>
-            <button className="ghost-button" type="button" onClick={onDownloadPoster}>
-              下载海报
-            </button>
+            <div className="result-actions__secondary">
+              <button
+                aria-label="分享文案"
+                className="ghost-button ghost-button--icon-only"
+                title="分享文案"
+                type="button"
+                onClick={onShareReading}
+              >
+                <span aria-hidden="true">↗</span>
+              </button>
+              <button
+                aria-label="下载海报"
+                className="ghost-button ghost-button--icon-only"
+                title="下载海报"
+                type="button"
+                onClick={onDownloadPoster}
+              >
+                <span aria-hidden="true">↓</span>
+              </button>
+            </div>
           </div>
+          <StatusMessage className="selection-note result-actions__notice" message={shareMessage} />
 
           <SpreadLayoutBoard
             cards={reading.cards}
@@ -98,20 +117,23 @@ export function ReadingResultSection({
           />
 
           <div className="result-grid">
-            <article className="result-panel">
-              <p className="eyebrow">Summary</p>
-              <RevealText as="h3" text="整体结论" />
-              <BlurText className="result-panel__summary" text={reading.summary} />
-            </article>
+            <article className="result-panel result-panel--highlighted">
+              <div className="result-panel__stack">
+                <p className="eyebrow">Reading Report</p>
+                <RevealText as="h3" text="解牌报告" />
+                <BlurText className="result-panel__summary" text={reading.summary} />
+              </div>
 
-            <article className="result-panel">
-              <p className="eyebrow">Advice</p>
-              <RevealText as="h3" text="行动建议" />
-              <ul className="advice-list">
-                {reading.advice.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <div className="result-panel__divider" aria-hidden="true" />
+
+              <div className="result-panel__stack">
+                <h4>行动建议</h4>
+                <ul className="advice-list">
+                  {reading.advice.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
             </article>
 
             <article className="result-panel result-panel--wide">
@@ -138,49 +160,63 @@ export function ReadingResultSection({
               </div>
             </article>
 
-            <article className="result-panel result-panel--wide">
-              <p className="eyebrow">Follow Up</p>
-              <RevealText as="h3" text="追问延伸" />
-              <div className="suggestion-row">
-                {followUpSuggestions.map((item) => (
-                  <button
-                    key={item}
-                    className="pill"
-                    type="button"
-                    onClick={() => onFollowUpQuestionChange(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-              <label className="question-field question-field--compact">
-                <span>继续追问</span>
-                <textarea
-                  placeholder="围绕当前牌面继续追问，例如：我最该先处理哪一个卡点？"
-                  value={followUpQuestion}
-                  onChange={(event) => onFollowUpQuestionChange(event.target.value)}
-                />
-              </label>
-              <div className="result-actions">
-                <button className="ghost-button" type="button" onClick={onSubmitFollowUp}>
-                  记录追问
-                </button>
-              </div>
-              {followUps.length > 0 ? (
-                <div className="follow-up-thread">
-                  {followUps.map((entry) => (
-                    <article key={entry.id} className="follow-up-card">
-                      <strong>{entry.question}</strong>
-                      <p>{entry.summary}</p>
-                    </article>
-                  ))}
+            <article className="result-panel result-panel--wide result-panel--accordion">
+              <details data-testid="follow-up-accordion">
+                <summary>
+                  <div>
+                    <p className="eyebrow">Follow Up</p>
+                    <RevealText as="h3" text="继续探索" />
+                  </div>
+                  <span className="section__count">追问延伸</span>
+                </summary>
+
+                <div className="result-panel__body fade-in-block">
+                  <div className="suggestion-row">
+                    {followUpSuggestions.map((item) => (
+                      <button
+                        key={item}
+                        className="pill"
+                        type="button"
+                        onClick={() => onFollowUpQuestionChange(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+
+                  <label className="question-field question-field--compact">
+                    <span>继续追问</span>
+                    <textarea
+                      aria-label="继续追问"
+                      placeholder="围绕当前牌面继续追问，例如：我最该先处理哪一个卡点？"
+                      value={followUpQuestion}
+                      onChange={(event) => onFollowUpQuestionChange(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="result-actions">
+                    <button className="ghost-button" type="button" onClick={onSubmitFollowUp}>
+                      记录追问
+                    </button>
+                  </div>
+
+                  {followUps.length > 0 ? (
+                    <div className="follow-up-thread">
+                      {followUps.map((entry) => (
+                        <article key={entry.id} className="follow-up-card">
+                          <strong>{entry.question}</strong>
+                          <p>{entry.summary}</p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              </details>
             </article>
 
-            <article className="result-panel result-panel--wide">
-              <p className="eyebrow">Record</p>
-              <RevealText as="h3" text="保存到记录中心" />
+            <article className="result-panel result-panel--footer result-panel--wide">
+              <p className="eyebrow">Archive</p>
+              <RevealText as="h3" text="封存本次指引" />
               <div className="save-history-layout">
                 <label className="inline-input">
                   <span>记录标题</span>
@@ -206,15 +242,14 @@ export function ReadingResultSection({
                 <button className="primary-button" type="button" onClick={onSaveReading}>
                   加入收藏
                 </button>
-                <StatusMessage message={recordNotice} />
-                <StatusMessage message={shareMessage} />
               </div>
+              <StatusMessage message={recordNotice} />
             </article>
           </div>
         </>
       ) : (
         <p className="selection-note">
-          选好问题、主题与牌阵后开始抽牌。抽中的牌会先在 78 张牌桌里亮起，再落入对应布局。
+          选好问题、主题与牌阵后开始抽牌。抽中的牌会先在牌桌里显影，再进入对应布局。
         </p>
       )}
     </section>

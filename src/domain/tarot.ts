@@ -27,6 +27,10 @@ interface TarotCardBase {
   nameZh: string
   nameEn: string
   number: number
+  encyclopedia: {
+    adviceZh: string
+    descriptionZh: string
+  }
   keywords: {
     up: string[]
     down: string[]

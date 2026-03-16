@@ -1,14 +1,10 @@
 import type { CSSProperties } from 'react'
+import { StatusMessage } from '../components/StatusMessage'
+import { RevealText } from '../components/RevealText'
 import { SPREADS } from '../data/spreads'
 import { TOPICS } from '../data/topics'
-import type {
-  ReadingPreferences,
-  ResolvedSpreadDefinition,
-  TopicId,
-} from '../domain/tarot'
+import type { ResolvedSpreadDefinition, TopicId } from '../domain/tarot'
 import { getSpreadPreviewPositions } from '../engine/reading'
-import { RevealText } from '../components/RevealText'
-import { StatusMessage } from '../components/StatusMessage'
 
 interface ReadingStudioSectionProps {
   canDraw: boolean
@@ -20,8 +16,6 @@ interface ReadingStudioSectionProps {
   onSelectSpread: (spreadId: string) => void
   onSelectTopic: (topicId: TopicId) => void
   onSelectVariant: (variantId: string) => void
-  onUpdatePreferences: (nextPreferences: ReadingPreferences) => void
-  preferences: ReadingPreferences
   question: string
   selectedSpread: ResolvedSpreadDefinition | null
   selectedTopic: {
@@ -38,6 +32,34 @@ interface ReadingStudioSectionProps {
   variantId?: string
 }
 
+const QUESTION_SUGGESTIONS: Record<TopicId, string[]> = {
+  general: [
+    '我接下来最该看清的整体趋势是什么？',
+    '当前局面里我最容易忽略的信号是什么？',
+    '未来三个月我需要注意什么能量？',
+  ],
+  love: [
+    '这段关系的下一步走向是什么？',
+    '我该怎样处理这段关系里的不安感？',
+    '眼前这份心动值得继续投入吗？',
+  ],
+  career: [
+    '我在当前工作中的核心卡点在哪里？',
+    '我该如何推进这个项目或机会？',
+    '现在适合我主动争取新的职业变化吗？',
+  ],
+  relationships: [
+    '我该怎样调整和这个人的互动边界？',
+    '这段关系里真正需要被说开的是什么？',
+    '我现在最该修复的是哪一层人际张力？',
+  ],
+  growth: [
+    '我正在重复的内在课题是什么？',
+    '我该如何停止消耗，回到自己的节奏？',
+    '当下最值得培养的内在力量是什么？',
+  ],
+}
+
 export function ReadingStudioSection({
   canDraw,
   drawNotice,
@@ -48,8 +70,6 @@ export function ReadingStudioSection({
   onSelectSpread,
   onSelectTopic,
   onSelectVariant,
-  onUpdatePreferences,
-  preferences,
   question,
   selectedSpread,
   selectedTopic,
@@ -58,6 +78,12 @@ export function ReadingStudioSection({
   topic,
   variantId,
 }: ReadingStudioSectionProps) {
+  const selectedSpreadDefinition = selectedSpread
+    ? SPREADS.find((entry) => entry.id === selectedSpread.id)
+    : null
+  const selectedVariants = selectedSpreadDefinition?.variants ?? []
+  const questionSuggestions = QUESTION_SUGGESTIONS[topic ?? 'general']
+
   return (
     <section aria-busy={isShuffling} className="panel section" id="reading">
       <div className="section__heading">
@@ -79,6 +105,22 @@ export function ReadingStudioSection({
           onChange={(event) => onQuestionChange(event.target.value)}
         />
       </label>
+
+      <div className="question-suggestions" data-testid="question-suggestions">
+        <span className="question-suggestions__label">试试这样问</span>
+        <div className="question-suggestions__list">
+          {questionSuggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              className="pill question-suggestions__pill"
+              type="button"
+              onClick={() => onQuestionChange(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="topic-selector utility-row">
         <div className="pill-grid">
@@ -104,7 +146,7 @@ export function ReadingStudioSection({
             spread.layoutId,
             spread.id === selectedSpread?.id && selectedVariant
               ? spread.variants?.find((entry) => entry.id === selectedVariant.id)?.positions ??
-                spread.positions
+                  spread.positions
               : spread.variants?.[0]?.positions ?? spread.positions,
           )
 
@@ -145,92 +187,39 @@ export function ReadingStudioSection({
         })}
       </div>
 
-      {selectedSpread?.activeVariantId !== undefined || selectedSpread?.positions ? (
-        selectedSpread && SPREADS.find((entry) => entry.id === selectedSpread.id)?.variants ? (
-          <div className="utility-row utility-row--stack">
-            <div className="section__heading section__heading--compact">
-              <div>
-                <p className="eyebrow">Spread Mode</p>
-                <RevealText as="h2" text={`${selectedSpread.title}模式`} />
-              </div>
+      {selectedSpread && selectedVariants.length > 0 ? (
+        <div className="utility-row utility-row--stack">
+          <div className="section__heading section__heading--compact">
+            <div>
+              <p className="eyebrow">Spread Mode</p>
+              <RevealText as="h2" text={`${selectedSpread.title}模式`} />
             </div>
-            <div className="utility-toggle utility-toggle--wrap">
-              {SPREADS.find((entry) => entry.id === selectedSpread.id)?.variants?.map((entry) => (
-                <button
-                  key={entry.id}
-                  className={`pill ${variantId === entry.id ? 'is-active' : ''}`}
-                  type="button"
-                  onClick={() => onSelectVariant(entry.id)}
-                >
-                  {entry.title}
-                </button>
-              ))}
-            </div>
-            {selectedVariant ? (
-              <p className="selection-note">{selectedVariant.description}</p>
-            ) : null}
           </div>
-        ) : null
+          <div className="utility-toggle utility-toggle--wrap">
+            {selectedVariants.map((entry) => (
+              <button
+                key={entry.id}
+                className={`pill ${variantId === entry.id ? 'is-active' : ''}`}
+                type="button"
+                onClick={() => onSelectVariant(entry.id)}
+              >
+                {entry.title}
+              </button>
+            ))}
+          </div>
+          {selectedVariant ? (
+            <p className="selection-note">{selectedVariant.description}</p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="draw-summary">
         <div className="draw-summary__row">
           <span>当前组合</span>
           <p>
-            {selectedTopic?.label ?? '未选主题'} 路 {selectedSpread?.title ?? '未选牌阵'}
-            {selectedVariant ? ` 路 ${selectedVariant.title}` : ''}
+            {selectedTopic?.label ?? '未选主题'} / {selectedSpread?.title ?? '未选牌阵'}
+            {selectedVariant ? ` / ${selectedVariant.title}` : ''}
           </p>
-        </div>
-
-        <div className="draw-preferences">
-          <label className="inline-input">
-            <span>洗牌速度</span>
-            <select
-              value={preferences.shuffleSpeed}
-              onChange={(event) =>
-                onUpdatePreferences({
-                  ...preferences,
-                  shuffleSpeed: event.target.value as ReadingPreferences['shuffleSpeed'],
-                })
-              }
-            >
-              <option value="fast">快</option>
-              <option value="normal">中</option>
-              <option value="slow">慢</option>
-            </select>
-          </label>
-          <label className="inline-input">
-            <span>翻牌模式</span>
-            <select
-              value={preferences.orientationMode}
-              onChange={(event) =>
-                onUpdatePreferences({
-                  ...preferences,
-                  orientationMode: event.target.value as ReadingPreferences['orientationMode'],
-                })
-              }
-            >
-              <option value="random">随机正逆位</option>
-              <option value="up-only">仅正位</option>
-            </select>
-          </label>
-          <label className="inline-input">
-            <span>牌阵舞台</span>
-            <select
-              value={preferences.deckPerformanceMode}
-              onChange={(event) =>
-                onUpdatePreferences({
-                  ...preferences,
-                  deckPerformanceMode:
-                    event.target.value as ReadingPreferences['deckPerformanceMode'],
-                })
-              }
-            >
-              <option value="auto">自动</option>
-              <option value="full">完整视觉</option>
-              <option value="lite">轻量模式</option>
-            </select>
-          </label>
         </div>
 
         <div className="draw-summary__actions">

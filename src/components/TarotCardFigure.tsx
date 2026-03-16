@@ -119,7 +119,6 @@ export function TarotCardFigure({
 
         <div className="tarot-card-figure__face tarot-card-figure__face--front">
           <div className="tarot-card-figure__header">
-            <span>{art.seal}</span>
             <span>{card.arcana === 'major' ? 'Major Arcana' : 'Minor Arcana'}</span>
           </div>
 
