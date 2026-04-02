@@ -4,7 +4,7 @@ import { TOPIC_BY_ID } from '../data/topics'
 import type {
   FollowUpRecord,
   ReadingPreferences,
-  ReadingRecordV2,
+  ReadingRecord,
   ReadingResult,
   TopicId,
 } from '../domain/tarot'
@@ -67,9 +67,9 @@ export const FOLLOW_UP_SUGGESTIONS = [
 interface UseReadingSessionOptions {
   onOpenResult?: () => void
   preferences: ReadingPreferences
-  records: ReadingRecordV2[]
+  records: ReadingRecord[]
   shuffleDelayMs?: number
-  upsertRecord: (record: ReadingRecordV2) => ReadingRecordV2[]
+  upsertRecord: (record: ReadingRecord) => ReadingRecord[]
 }
 
 export const useReadingSession = ({

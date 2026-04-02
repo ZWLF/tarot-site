@@ -1,4 +1,4 @@
-import type { Orientation, ReadingRecordV2, ReadingResult } from '../domain/tarot'
+import type { Orientation, ReadingRecord, ReadingResult } from '../domain/tarot'
 
 interface PosterCard {
   label: string
@@ -59,7 +59,7 @@ export const buildReadingShareText = (
     .join('\n')
 }
 
-export const buildRecordShareText = (record: ReadingRecordV2): string => {
+export const buildRecordShareText = (record: ReadingRecord): string => {
   const cardsLine = record.cards
     .map(
       (card) =>

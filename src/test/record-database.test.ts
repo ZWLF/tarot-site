@@ -40,6 +40,6 @@ describe('record database persistence', () => {
     expect(hydrated.backend).toBe('indexeddb')
     expect(hydrated.records).toHaveLength(1)
     expect(hydrated.records[0].id).toBe('indexeddb-record')
-    expect(window.localStorage.getItem('ukiyo-tarot.records-v2')).not.toBeNull()
+    expect(window.localStorage.getItem('ukiyo-tarot.records-v3')).not.toBeNull()
   })
 })

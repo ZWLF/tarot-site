@@ -1,4 +1,4 @@
-import type { ReadingRecordV2 } from '../domain/tarot'
+import type { ReadingRecord } from '../domain/tarot'
 import { CARD_IMAGE_ASSET_BY_ID } from '../data/cardImages'
 import { RevealText } from './RevealText'
 import { StatusMessage } from './StatusMessage'
@@ -18,7 +18,7 @@ interface RecordCenterProps {
   onTagFilterChange: (value: string) => void
   onToggleCompare: (recordId: string) => void
   query: string
-  records: ReadingRecordV2[]
+  records: ReadingRecord[]
   recordsMessage: string | null
   sectionId?: string
   storageBackend: 'indexeddb' | 'localstorage'
@@ -26,7 +26,7 @@ interface RecordCenterProps {
   tagFilter: string
 }
 
-const matchesRecord = (record: ReadingRecordV2, query: string) => {
+const matchesRecord = (record: ReadingRecord, query: string) => {
   const normalizedQuery = query.trim().toLowerCase()
 
   if (!normalizedQuery) {
@@ -66,7 +66,7 @@ const formatRecordTime = (iso: string) =>
     minute: '2-digit',
   }).format(new Date(iso))
 
-const RecordCardThumbs = ({ record }: { record: ReadingRecordV2 }) => (
+const RecordCardThumbs = ({ record }: { record: ReadingRecord }) => (
   <div className="record-card__thumbs">
     {record.cards.slice(0, 6).map((card) => {
       const imageAsset = CARD_IMAGE_ASSET_BY_ID[card.cardId]
@@ -125,7 +125,7 @@ export function RecordCenter({
 
   const compareRecords = compareSelection
     .map((id) => records.find((record) => record.id === id))
-    .filter((record): record is ReadingRecordV2 => record !== undefined)
+    .filter((record): record is ReadingRecord => record !== undefined)
 
   return (
     <section className="panel section" id={sectionId}>

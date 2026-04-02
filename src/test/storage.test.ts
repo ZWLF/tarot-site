@@ -16,7 +16,7 @@ describe('reading storage', () => {
     window.localStorage.clear()
   })
 
-  it('migrates legacy saved readings and history into the v2 record store', () => {
+  it('migrates legacy saved readings and history into the v3 record store', () => {
     window.localStorage.setItem(
       'ukiyo-tarot.saved-readings',
       JSON.stringify([
@@ -69,12 +69,12 @@ describe('reading storage', () => {
     const records = loadReadingRecords()
 
     expect(records).toHaveLength(2)
-    expect(records[0].version).toBe(2)
+    expect(records[0].version).toBe(3)
     expect(records.find((entry) => entry.id === 'legacy-saved')?.saved).toBe(true)
     expect(
       records.find((entry) => entry.id === 'legacy-history')?.variantId,
     ).toBe('diagnostic')
-    expect(window.localStorage.getItem('ukiyo-tarot.records-v2')).not.toBeNull()
+    expect(window.localStorage.getItem('ukiyo-tarot.records-v3')).not.toBeNull()
   })
 
   it('updates the same record when a reading is saved after auto-archive', () => {
@@ -115,6 +115,8 @@ describe('reading storage', () => {
     expect(records[0].title).toBe('项目推进占卜')
     expect(records[0].tags).toEqual(['项目', '决策'])
     expect(records[0].actionPlan[0].done).toBe(true)
+    expect(records[0].depthLevel).toBe('deep')
+    expect(records[0].ruleHits.length).toBeGreaterThan(0)
   })
 
   it('creates stable daily records for the same date', () => {

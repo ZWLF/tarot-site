@@ -3,6 +3,7 @@ import type {
   DailyReflection,
   FollowUpRecord,
   ReadingPreferences,
+  ReadingRecord,
   ReadingRecordV2,
   ReadingResult,
   SavedActionPlanStep,
@@ -10,7 +11,8 @@ import type {
 import { TOPIC_BY_ID } from '../data/topics'
 import { buildLocalDateKey } from '../lib/localDate'
 
-const RECORDS_KEY = 'ukiyo-tarot.records-v2'
+const RECORDS_KEY = 'ukiyo-tarot.records-v3'
+const V2_RECORDS_KEY = 'ukiyo-tarot.records-v2'
 const GUIDE_DISMISSED_KEY = 'ukiyo-tarot.guide-dismissed'
 const PREFERENCES_KEY = 'ukiyo-tarot.reading-preferences'
 const LEGACY_SAVED_KEY = 'ukiyo-tarot.saved-readings'
@@ -66,7 +68,19 @@ const hashContent = (value: string) => {
   return hash.toString(36)
 }
 
-export const normalizeReadingRecords = (records: ReadingRecordV2[]) =>
+const depthLevelRank = (level: ReadingRecord['depthLevel']) => {
+  if (level === 'deep') {
+    return 3
+  }
+
+  if (level === 'standard') {
+    return 2
+  }
+
+  return 1
+}
+
+export const normalizeReadingRecords = (records: ReadingRecord[]) =>
   records
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, MAX_RECORDS)
@@ -114,13 +128,19 @@ const toSavedSteps = (
   actionPlan: SavedActionPlanStep[] | undefined,
 ): SavedActionPlanStep[] => actionPlan ?? []
 
-const migrateLegacySavedRecord = (
-  record: LegacySavedReadingRecord,
-): ReadingRecordV2 => {
+const createDefaultDepthFields = (summary: string, dominantSignals: string[] = []) => ({
+  depthLevel: 'standard' as const,
+  depthSignals: dominantSignals.slice(0, 4),
+  ruleHits: [] as string[],
+  queryFlags: [] as string[],
+  interpretationSummary: summary,
+})
+
+const migrateLegacySavedRecord = (record: LegacySavedReadingRecord): ReadingRecord => {
   const spreadMeta = getLegacySpreadMeta(undefined, record.spreadTitle, record.cards)
 
   return {
-    version: 2,
+    version: 3,
     id: record.id,
     kind: 'reading',
     saved: true,
@@ -151,16 +171,15 @@ const migrateLegacySavedRecord = (
       eveningReview: '',
       resonance: null,
     },
+    ...createDefaultDepthFields(record.summary, record.dominantSignals),
   }
 }
 
-const migrateLegacyHistoryEntry = (
-  entry: SavedReadingEntry,
-): ReadingRecordV2 => {
+const migrateLegacyHistoryEntry = (entry: SavedReadingEntry): ReadingRecord => {
   const spreadMeta = getLegacySpreadMeta(entry.spreadId, entry.spreadTitle, entry.cards)
 
   return {
-    version: 2,
+    version: 3,
     id: entry.id,
     kind: 'reading',
     saved: false,
@@ -191,11 +210,40 @@ const migrateLegacyHistoryEntry = (
       eveningReview: '',
       resonance: null,
     },
+    ...createDefaultDepthFields(entry.summary, entry.dominantSignals),
   }
 }
 
-export const mergeReadingRecords = (records: ReadingRecordV2[]) => {
-  const map = new Map<string, ReadingRecordV2>()
+const migrateReadingRecordV2 = (record: ReadingRecordV2): ReadingRecord => ({
+  ...record,
+  version: 3,
+  ...createDefaultDepthFields(record.summary, record.dominantSignals),
+})
+
+const migrateLegacyRecords = () => {
+  const legacySaved = readJson<LegacySavedReadingRecord[]>(LEGACY_SAVED_KEY, [])
+  const legacyHistory = readJson<SavedReadingEntry[]>(LEGACY_HISTORY_KEY, [])
+
+  return mergeReadingRecords([
+    ...legacySaved.map(migrateLegacySavedRecord),
+    ...legacyHistory.map(migrateLegacyHistoryEntry),
+  ])
+}
+
+export const toReadingRecord = (value: unknown): ReadingRecord | null => {
+  if (isReadingRecordV3(value)) {
+    return value
+  }
+
+  if (isReadingRecordV2(value)) {
+    return migrateReadingRecordV2(value)
+  }
+
+  return null
+}
+
+export const mergeReadingRecords = (records: ReadingRecord[]) => {
+  const map = new Map<string, ReadingRecord>()
 
   for (const record of records) {
     const existing = map.get(record.id)
@@ -231,32 +279,44 @@ export const mergeReadingRecords = (records: ReadingRecordV2[]) => {
         record.dailyReflection.resonance
           ? record.dailyReflection
           : existing.dailyReflection,
-      updatedAt:
-        record.updatedAt > existing.updatedAt ? record.updatedAt : existing.updatedAt,
+      updatedAt: record.updatedAt > existing.updatedAt ? record.updatedAt : existing.updatedAt,
+      depthLevel:
+        depthLevelRank(record.depthLevel) >= depthLevelRank(existing.depthLevel)
+          ? record.depthLevel
+          : existing.depthLevel,
+      depthSignals:
+        record.depthSignals.length > 0 ? record.depthSignals : existing.depthSignals,
+      ruleHits:
+        record.ruleHits.length > 0
+          ? Array.from(new Set([...existing.ruleHits, ...record.ruleHits]))
+          : existing.ruleHits,
+      queryFlags:
+        record.queryFlags.length > 0
+          ? Array.from(new Set([...existing.queryFlags, ...record.queryFlags]))
+          : existing.queryFlags,
+      interpretationSummary:
+        record.interpretationSummary || existing.interpretationSummary || record.summary,
+      version: 3,
     })
   }
 
   return normalizeReadingRecords(Array.from(map.values()))
 }
 
-const migrateLegacyRecords = () => {
-  const legacySaved = readJson<LegacySavedReadingRecord[]>(LEGACY_SAVED_KEY, [])
-  const legacyHistory = readJson<SavedReadingEntry[]>(LEGACY_HISTORY_KEY, [])
+export const loadReadingRecords = (): ReadingRecord[] => {
+  const storedV3Records = readJson<ReadingRecord[]>(RECORDS_KEY, [])
+  const normalizedV3 = storedV3Records
+    .map((record) => toReadingRecord(record))
+    .filter((record): record is ReadingRecord => record !== null)
 
-  return mergeReadingRecords([
-    ...legacySaved.map(migrateLegacySavedRecord),
-    ...legacyHistory.map(migrateLegacyHistoryEntry),
-  ])
-}
-
-export const loadReadingRecords = (): ReadingRecordV2[] => {
-  const storedRecords = readJson<ReadingRecordV2[]>(RECORDS_KEY, [])
-
-  if (storedRecords.length > 0) {
-    return normalizeReadingRecords(storedRecords)
+  if (normalizedV3.length > 0) {
+    return normalizeReadingRecords(normalizedV3)
   }
 
-  const migrated = migrateLegacyRecords()
+  const storedV2Records = readJson<ReadingRecordV2[]>(V2_RECORDS_KEY, [])
+  const migratedV2 = storedV2Records.map(migrateReadingRecordV2)
+  const migratedLegacy = migrateLegacyRecords()
+  const migrated = mergeReadingRecords([...migratedV2, ...migratedLegacy])
 
   if (migrated.length > 0) {
     writeJson(RECORDS_KEY, migrated)
@@ -265,13 +325,13 @@ export const loadReadingRecords = (): ReadingRecordV2[] => {
   return migrated
 }
 
-export const storeReadingRecords = (records: ReadingRecordV2[]) => {
+export const storeReadingRecords = (records: ReadingRecord[]) => {
   const normalizedRecords = normalizeReadingRecords(records)
   writeJson(RECORDS_KEY, normalizedRecords)
   return normalizedRecords
 }
 
-export const saveReadingRecord = (record: ReadingRecordV2) => {
+export const saveReadingRecord = (record: ReadingRecord) => {
   const records = mergeReadingRecords([record, ...loadReadingRecords()])
   storeReadingRecords(records)
   return records
@@ -314,12 +374,12 @@ const createBaseReflection = (): DailyReflection => ({
 export const buildReadingRecordFromReading = (
   reading: ReadingResult,
   options: RecordOptions,
-): ReadingRecordV2 => {
+): ReadingRecord => {
   const now = new Date().toISOString()
   const createdAt = options.createdAt ?? now
 
   return {
-    version: 2,
+    version: 3,
     id: options.recordId ?? buildReadingRecordId(reading),
     kind: 'reading',
     saved: options.saved,
@@ -349,6 +409,11 @@ export const buildReadingRecordFromReading = (
     })),
     followUps: options.followUps,
     dailyReflection: createBaseReflection(),
+    depthLevel: reading.depthLevel,
+    depthSignals: reading.interpretation.depthSignals,
+    ruleHits: reading.interpretation.ruleHits,
+    queryFlags: reading.interpretation.queryFlags,
+    interpretationSummary: reading.summary,
   }
 }
 
@@ -356,11 +421,11 @@ export const buildDailyRecord = (
   reading: ReadingResult,
   date: Date,
   reflection: DailyReflection = createBaseReflection(),
-): ReadingRecordV2 => {
+): ReadingRecord => {
   const iso = date.toISOString()
 
   return {
-    version: 2,
+    version: 3,
     id: buildDailyRecordId(date),
     kind: 'daily',
     saved: false,
@@ -393,6 +458,11 @@ export const buildDailyRecord = (
     })),
     followUps: [],
     dailyReflection: reflection,
+    depthLevel: reading.depthLevel,
+    depthSignals: reading.interpretation.depthSignals,
+    ruleHits: reading.interpretation.ruleHits,
+    queryFlags: reading.interpretation.queryFlags,
+    interpretationSummary: reading.summary,
   }
 }
 
@@ -449,10 +519,35 @@ const isReadingRecordV2 = (value: unknown): value is ReadingRecordV2 => {
   )
 }
 
-export const exportReadingRecordsJson = (records: ReadingRecordV2[]) =>
+const isReadingRecordV3 = (value: unknown): value is ReadingRecord => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Partial<ReadingRecord>
+
+  return (
+    record.version === 3 &&
+    typeof record.id === 'string' &&
+    (record.kind === 'reading' || record.kind === 'daily') &&
+    typeof record.question === 'string' &&
+    Array.isArray(record.cards) &&
+    Array.isArray(record.tags) &&
+    Array.isArray(record.followUps) &&
+    Array.isArray(record.actionPlan) &&
+    (record.depthLevel === 'shallow' ||
+      record.depthLevel === 'standard' ||
+      record.depthLevel === 'deep') &&
+    Array.isArray(record.depthSignals) &&
+    Array.isArray(record.ruleHits) &&
+    Array.isArray(record.queryFlags)
+  )
+}
+
+export const exportReadingRecordsJson = (records: ReadingRecord[]) =>
   JSON.stringify(
     {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       recordCount: records.length,
       records: normalizeReadingRecords([...records]),
@@ -464,7 +559,7 @@ export const exportReadingRecordsJson = (records: ReadingRecordV2[]) =>
 export const parseReadingRecordsJson = (raw: string) => {
   const parsed = JSON.parse(raw) as
     | { records?: unknown }
-    | ReadingRecordV2[]
+    | Array<ReadingRecord | ReadingRecordV2>
     | undefined
 
   const rawRecords = Array.isArray(parsed)
@@ -474,6 +569,8 @@ export const parseReadingRecordsJson = (raw: string) => {
       : []
 
   return normalizeReadingRecords(
-    rawRecords.filter((record): record is ReadingRecordV2 => isReadingRecordV2(record)),
+    rawRecords
+      .map((record) => toReadingRecord(record))
+      .filter((record): record is ReadingRecord => record !== null),
   )
 }

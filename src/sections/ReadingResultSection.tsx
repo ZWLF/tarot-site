@@ -77,6 +77,17 @@ export function ReadingResultSection({
               <span key={`signal-${index}-${signal}`}>{signal}</span>
             ))}
           </div>
+          {reading.interpretation.depthSignals.length > 0 ? (
+            <article className="result-panel result-panel--compact" data-testid="deep-signals-panel">
+              <p className="eyebrow">Deep Signals</p>
+              <h3>深度信号</h3>
+              <ul className="advice-list">
+                {reading.interpretation.depthSignals.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
 
           <div className="result-actions result-actions--primary">
             <button
