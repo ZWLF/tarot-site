@@ -6,8 +6,12 @@ import type {
   ActionPlanStep,
   DrawPool,
   DrawnCard,
+  ElementalDynamics,
+  InterpretationMeta,
+  InterpretationRuleTag,
   OrientationMode,
   ReadingCardView,
+  ReadingDepthLevel,
   ReadingInput,
   ReadingResult,
   ResolvedSpreadDefinition,
@@ -24,6 +28,16 @@ interface ReadingOptions {
 }
 
 type MinorSuit = Exclude<Suit, null>
+
+interface QueryGuardResult {
+  flags: string[]
+  softenedForSafety: boolean
+}
+
+interface InterpretationBuildResult {
+  meta: InterpretationMeta
+  positionRuleTags: Record<string, InterpretationRuleTag[]>
+}
 
 const SUIT_LENSES: Record<MinorSuit, Record<TopicId, string>> = {
   wands: {
@@ -85,6 +99,14 @@ const SUIT_SUMMARIES: Record<MinorSuit, Record<TopicId, string>> = {
     relationships: '星币能量最强，人际问题需要回到可靠度与支持层面。',
     growth: '星币能量最强，成长需要被写进日常结构里。',
   },
+}
+
+const TOPIC_ACTION_FOCUS: Record<TopicId, string> = {
+  general: '把最重要的一条主线行动写下来，并在 72 小时内执行一次小实验。',
+  love: '优先处理沟通质量与边界表达，再决定关系下一步。',
+  career: '先明确目标与标准，再按节奏推进关键执行动作。',
+  relationships: '先厘清互动边界与误解来源，再决定投入强度。',
+  growth: '把内在洞察转化成可重复的日常动作，避免只停留在感受层。',
 }
 
 const ADVICE_LIBRARY: Record<string, string> = {
@@ -168,6 +190,13 @@ const ACTION_PLAN_LIBRARY: Record<
     detail: '记录第一反应，再用一个现实动作去验证它。',
   },
 }
+
+const SENSITIVE_QUERY_PATTERNS: Array<{ flag: string; pattern: RegExp }> = [
+  { flag: 'medical', pattern: /(确诊|病|癌|手术|药|治疗|怀孕|流产|抑郁|自杀)/i },
+  { flag: 'legal', pattern: /(起诉|离婚判决|合同纠纷|刑事|法律责任|坐牢)/i },
+  { flag: 'death', pattern: /(死亡|会不会死|寿命|什么时候死)/i },
+  { flag: 'forced-decision', pattern: /(该不该|必须选|A还是B|帮我决定|替我决定)/i },
+]
 
 const getSpread = (spreadId: string) => {
   const spread = SPREADS.find((item) => item.id === spreadId)
@@ -253,17 +282,28 @@ export const createReading = (
   const cards = drawCards(spread, random, options.orientationMode).map((drawn) =>
     createCardView(spread, drawn),
   )
+  const interpretationBuild = buildInterpretation(cards, input)
+  const tone = buildTone(cards)
+  const dominantSignals = buildDominantSignals(cards, input.topic, interpretationBuild.meta)
 
   return {
     input,
     spread,
     cards,
-    positionReadings: cards.map((entry) => buildPositionReading(entry, input.topic)),
-    summary: buildSummary(cards, input, spread),
-    advice: buildAdvice(cards),
-    actionPlan: buildActionPlan(cards),
-    tone: buildTone(cards),
-    dominantSignals: buildDominantSignals(cards, input.topic),
+    positionReadings: cards.map((entry) =>
+      buildPositionReading(
+        entry,
+        input.topic,
+        interpretationBuild.positionRuleTags[entry.drawn.positionKey] ?? [],
+      ),
+    ),
+    summary: buildSummary(cards, input, spread, tone, interpretationBuild.meta),
+    advice: buildAdvice(cards, input.topic, interpretationBuild.meta),
+    actionPlan: buildActionPlan(cards, interpretationBuild.meta),
+    tone,
+    dominantSignals,
+    depthLevel: resolveDepthLevel(cards, interpretationBuild.meta),
+    interpretation: interpretationBuild.meta,
   }
 }
 
@@ -286,7 +326,203 @@ const createCardView = (
   }
 }
 
-const buildPositionReading = (entry: ReadingCardView, topic: TopicId) => {
+const analyzeQuery = (question: string): QueryGuardResult => {
+  const flags = SENSITIVE_QUERY_PATTERNS.filter((entry) => entry.pattern.test(question)).map(
+    (entry) => entry.flag,
+  )
+
+  return {
+    flags,
+    softenedForSafety: flags.length > 0,
+  }
+}
+
+const buildInterpretation = (
+  cards: ReadingCardView[],
+  input: ReadingInput,
+): InterpretationBuildResult => {
+  const queryGuard = analyzeQuery(input.question)
+  const positionTagSets: Record<string, Set<InterpretationRuleTag>> = Object.fromEntries(
+    cards.map((card) => [card.drawn.positionKey, new Set<InterpretationRuleTag>()]),
+  )
+  const conflicts: string[] = []
+  const harmonies: string[] = []
+  const ruleHits = new Set<string>()
+
+  cards.forEach((entry) => {
+    const tags = positionTagSets[entry.drawn.positionKey]
+
+    if (entry.drawn.orientation === 'down') {
+      tags.add('Internalized')
+      ruleHits.add('R_REV_01')
+    }
+
+    if (entry.card.arcana === 'major') {
+      tags.add('Major_Archetype')
+      ruleHits.add('R_ARC_01')
+    }
+  })
+
+  for (let index = 0; index < cards.length - 1; index += 1) {
+    const left = cards[index]
+    const right = cards[index + 1]
+    const interaction = getElementInteraction(left.card.suit, right.card.suit)
+
+    if (interaction === 'conflict') {
+      positionTagSets[left.drawn.positionKey].add('Conflict')
+      positionTagSets[right.drawn.positionKey].add('Conflict')
+      conflicts.push(`${left.positionLabel}与${right.positionLabel}存在元素冲突`)
+      ruleHits.add('R_ELM_01')
+    }
+
+    if (interaction === 'harmony') {
+      positionTagSets[left.drawn.positionKey].add('Harmony')
+      positionTagSets[right.drawn.positionKey].add('Harmony')
+      harmonies.push(`${left.positionLabel}与${right.positionLabel}形成协同`)
+      ruleHits.add('R_ELM_03')
+    }
+  }
+
+  const elementalDynamics = getElementalDynamics(cards)
+
+  if (elementalDynamics.missing.length > 0) {
+    ruleHits.add('R_ELM_02')
+    cards.forEach((entry) => {
+      positionTagSets[entry.drawn.positionKey].add('Element_Weak')
+    })
+  }
+
+  if (elementalDynamics.dominant !== null) {
+    ruleHits.add('R_ELM_04')
+    cards.forEach((entry) => {
+      if (entry.card.suit === elementalDynamics.dominant) {
+        positionTagSets[entry.drawn.positionKey].add('Element_Strength')
+      }
+    })
+  }
+
+  if (queryGuard.softenedForSafety) {
+    ruleHits.add('R_VAL_SOFTEN')
+  }
+
+  const depthSignals = buildDepthSignals(
+    cards,
+    elementalDynamics,
+    conflicts,
+    harmonies,
+    queryGuard,
+  )
+
+  return {
+    meta: {
+      depthSignals,
+      ruleHits: Array.from(ruleHits),
+      queryFlags: queryGuard.flags,
+      softenedForSafety: queryGuard.softenedForSafety,
+      elementalDynamics: {
+        ...elementalDynamics,
+        conflicts,
+        harmonies,
+      },
+    },
+    positionRuleTags: Object.fromEntries(
+      Object.entries(positionTagSets).map(([key, value]) => [key, Array.from(value)]),
+    ),
+  }
+}
+
+const buildDepthSignals = (
+  cards: ReadingCardView[],
+  elementalDynamics: ElementalDynamics,
+  conflicts: string[],
+  harmonies: string[],
+  queryGuard: QueryGuardResult,
+) => {
+  const signals: string[] = []
+  const majorCount = cards.filter((entry) => entry.card.arcana === 'major').length
+
+  if (majorCount > 0) {
+    signals.push(
+      majorCount >= Math.ceil(cards.length / 2) ? '原型力量主导' : '出现关键原型牌',
+    )
+  }
+
+  if (elementalDynamics.dominant) {
+    signals.push(`主导元素：${formatSuitLabel(elementalDynamics.dominant)}`)
+  }
+
+  if (elementalDynamics.missing.length > 0) {
+    signals.push(
+      `缺失元素：${elementalDynamics.missing.map((item) => formatSuitLabel(item)).join('、')}`,
+    )
+  }
+
+  if (conflicts.length > 0) {
+    signals.push('牌阵存在元素冲突')
+  } else if (harmonies.length > 0) {
+    signals.push('牌阵存在元素协同')
+  }
+
+  if (queryGuard.softenedForSafety) {
+    signals.push('高风险问题已触发安全降权')
+  }
+
+  return signals
+}
+
+const getElementInteraction = (left: Suit, right: Suit): 'conflict' | 'harmony' | 'neutral' => {
+  if (!left || !right) {
+    return 'neutral'
+  }
+
+  if (left === right) {
+    return 'harmony'
+  }
+
+  const pair = [left, right].sort().join('-')
+
+  if (pair === 'cups-wands' || pair === 'pentacles-swords') {
+    return 'conflict'
+  }
+
+  if (pair === 'swords-wands' || pair === 'cups-pentacles') {
+    return 'harmony'
+  }
+
+  return 'neutral'
+}
+
+const getElementalDynamics = (cards: ReadingCardView[]): ElementalDynamics => {
+  const suitCounts = cards.reduce<Record<MinorSuit, number>>(
+    (accumulator, entry) => {
+      if (entry.card.suit !== null) {
+        accumulator[entry.card.suit] += 1
+      }
+
+      return accumulator
+    },
+    { wands: 0, cups: 0, swords: 0, pentacles: 0 },
+  )
+
+  const dominantEntry = Object.entries(suitCounts).sort((left, right) => right[1] - left[1])[0]
+  const dominant = dominantEntry[1] > 0 ? (dominantEntry[0] as MinorSuit) : null
+  const missing = (Object.entries(suitCounts) as Array<[MinorSuit, number]>)
+    .filter(([, count]) => count === 0)
+    .map(([suit]) => suit)
+
+  return {
+    dominant,
+    missing,
+    conflicts: [],
+    harmonies: [],
+  }
+}
+
+const buildPositionReading = (
+  entry: ReadingCardView,
+  topic: TopicId,
+  ruleTags: InterpretationRuleTag[],
+) => {
   const suitLine =
     entry.card.arcana === 'major'
       ? '这张大阿尔卡那说明此处牵动的是阶段性课题，而不是短暂波动。'
@@ -294,7 +530,8 @@ const buildPositionReading = (entry: ReadingCardView, topic: TopicId) => {
   const orientationLine =
     entry.drawn.orientation === 'up'
       ? '正位让这股力量更直接地显形。'
-      : '逆位表示这股力量需要先回收、修整或换一种方式表达。'
+      : '逆位在这里更像能量内化或暂时受阻，需要先整理再推进。'
+  const dynamicLine = getDynamicLine(ruleTags)
 
   return {
     positionKey: entry.drawn.positionKey,
@@ -303,12 +540,29 @@ const buildPositionReading = (entry: ReadingCardView, topic: TopicId) => {
     cardId: entry.card.id,
     cardName: `${entry.card.nameZh} · ${entry.drawn.orientation === 'up' ? '正位' : '逆位'}`,
     orientation: entry.drawn.orientation,
-    message: `${entry.positionLabel}位关注${entry.prompt}。${entry.card.meaning[entry.drawn.orientation]}${suitLine}${orientationLine}${TOPIC_BY_ID[topic].framing}`,
+    message: `${entry.positionLabel}位关注${entry.prompt}。${entry.card.meaning[entry.drawn.orientation]}${suitLine}${orientationLine}${dynamicLine}${TOPIC_BY_ID[topic].framing}`,
     keywords:
       entry.drawn.orientation === 'up'
         ? entry.card.keywords.up.slice(0, 3)
         : entry.card.keywords.down.slice(0, 3),
+    ruleTags,
   }
+}
+
+const getDynamicLine = (ruleTags: InterpretationRuleTag[]) => {
+  if (ruleTags.includes('Conflict')) {
+    return '这张牌与相邻牌之间存在元素冲突，提示你需要先处理内部拉扯。'
+  }
+
+  if (ruleTags.includes('Harmony')) {
+    return '这张牌与相邻牌之间形成协同，说明当前有可借力的顺势窗口。'
+  }
+
+  if (ruleTags.includes('Element_Weak')) {
+    return '牌阵里有关键元素缺位，提示你需要主动补齐某个被忽略的维度。'
+  }
+
+  return ''
 }
 
 const buildTone = (cards: ReadingCardView[]) => {
@@ -343,7 +597,11 @@ const buildTone = (cards: ReadingCardView[]) => {
   return '静中有进'
 }
 
-const buildDominantSignals = (cards: ReadingCardView[], topic: TopicId) => {
+const buildDominantSignals = (
+  cards: ReadingCardView[],
+  topic: TopicId,
+  interpretation: InterpretationMeta,
+) => {
   const signals = [`主题：${TOPIC_BY_ID[topic].label}`, `气质：${buildTone(cards)}`]
   const majorCount = cards.filter((entry) => entry.card.arcana === 'major').length
   const reversedCount = cards.filter((entry) => entry.drawn.orientation === 'down').length
@@ -351,9 +609,7 @@ const buildDominantSignals = (cards: ReadingCardView[], topic: TopicId) => {
 
   if (majorCount > 0) {
     signals.push(
-      majorCount >= Math.ceil(cards.length / 2)
-        ? '大阿尔卡那主导'
-        : '出现关键转折牌',
+      majorCount >= Math.ceil(cards.length / 2) ? '大阿尔卡那主导' : '出现关键转折牌',
     )
   }
 
@@ -373,58 +629,97 @@ const buildDominantSignals = (cards: ReadingCardView[], topic: TopicId) => {
     signals.push('逆位较多')
   }
 
-  return signals
+  return Array.from(new Set([...signals, ...interpretation.depthSignals])).slice(0, 8)
 }
 
 const buildSummary = (
   cards: ReadingCardView[],
   input: ReadingInput,
   spread: ResolvedSpreadDefinition,
+  tone: string,
+  interpretation: InterpretationMeta,
 ) => {
-  const tone = buildTone(cards)
   const reversedCount = cards.filter((entry) => entry.drawn.orientation === 'down').length
   const majorCount = cards.filter((entry) => entry.card.arcana === 'major').length
   const dominantSuit = getDominantSuit(cards)
   const parts = [
-    `围绕「${input.question}」，在${TOPIC_BY_ID[input.topic].label}议题下，这组${spread.title}${spread.activeVariantTitle ? ` · ${spread.activeVariantTitle}` : ''}整体呈现出${tone}的底色。`,
+    `围绕「${input.question}」，在${TOPIC_BY_ID[input.topic].label}议题下，这组${spread.title}${spread.activeVariantTitle ? ` · ${spread.activeVariantTitle}` : ''}呈现出${tone}的基调。`,
   ]
 
   if (majorCount >= Math.ceil(cards.length / 2)) {
-    parts.push('大阿尔卡那占比较高，说明这次提问触及长期课题与阶段性转折。')
+    parts.push('大阿尔卡那占比较高，说明这次不只是表层事件，而是阶段性的原型课题在推动你。')
   } else if (majorCount > 0) {
-    parts.push('牌阵中出现的大阿尔卡那提示你已经站在关键节点。')
+    parts.push('牌阵中的大阿尔卡那提示你已经站在关键节点，选择会影响后续轨迹。')
   }
 
   if (dominantSuit) {
     parts.push(SUIT_SUMMARIES[dominantSuit][input.topic])
   }
 
+  if (interpretation.elementalDynamics.conflicts.length > 0) {
+    parts.push('牌阵显示出元素冲突，当前真正的难点不是“没有路”，而是内在动力与现实节奏还未对齐。')
+  } else if (interpretation.elementalDynamics.harmonies.length > 0) {
+    parts.push('牌阵存在元素协同，说明你手上已经有可被调动的顺势资源。')
+  }
+
+  if (interpretation.elementalDynamics.missing.length > 0) {
+    parts.push(
+      `你目前最容易忽略的维度是${interpretation.elementalDynamics.missing
+        .map((entry) => formatSuitLabel(entry))
+        .join('、')}，补齐这部分通常比强行加速更有效。`,
+    )
+  }
+
   if (reversedCount === 0) {
-    parts.push('顺位流动很完整，只要方向明确，局势就会较顺畅地推进。')
+    parts.push('顺位流动较完整，重点是保持方向一致，不要被短期噪音带偏。')
   } else if (reversedCount >= Math.ceil(cards.length / 2)) {
-    parts.push('逆位偏多，答案不在更快行动，而在先整理内在节奏与卡点。')
+    parts.push('逆位偏多，当前更适合先整理内部卡点，再推进外部动作。')
   } else {
-    parts.push('顺逆位交错，说明外部条件可推进，但内部仍需细致校准。')
+    parts.push('顺逆位交错，外部机会可推进，但内部仍需要更细致的校准。')
+  }
+
+  parts.push(TOPIC_ACTION_FOCUS[input.topic])
+
+  if (interpretation.softenedForSafety) {
+    parts.push('这个问题触及高风险决策语境，塔罗更适合帮助你看清状态与行动选项，而不是替你做结论性决定。')
   }
 
   return parts.join('')
 }
 
-const buildAdvice = (cards: ReadingCardView[]) => {
+const buildAdvice = (
+  cards: ReadingCardView[],
+  topic: TopicId,
+  interpretation: InterpretationMeta,
+) => {
   const uniqueTags = Array.from(new Set(cards.flatMap((entry) => entry.card.adviceTags)))
   const advice = uniqueTags
     .map((tag) => ADVICE_LIBRARY[tag])
     .filter(Boolean)
-    .slice(0, 3)
+    .slice(0, 2)
 
-  if (advice.length < 3) {
-    advice.push('把牌面当成提醒，而不是命令，答案仍需要你亲自去验证。')
+  if (interpretation.elementalDynamics.conflicts.length > 0) {
+    advice.push('先处理拉扯最大的冲突点，再做下一步决定，能显著减少反复。')
+  } else if (interpretation.elementalDynamics.missing.length > 0) {
+    advice.push(
+      `有意识补齐${interpretation.elementalDynamics.missing
+        .map((entry) => formatSuitLabel(entry))
+        .join('、')}相关行动，会提升整体推进质量。`,
+    )
   }
 
-  return advice
+  if (advice.length < 3) {
+    advice.push(TOPIC_ACTION_FOCUS[topic])
+  }
+
+  if (interpretation.softenedForSafety) {
+    advice[2] = '涉及高风险议题时，请把塔罗作为自我校准工具，并结合现实中的专业支持与事实判断。'
+  }
+
+  return advice.slice(0, 3)
 }
 
-const buildActionPlan = (cards: ReadingCardView[]) => {
+const buildActionPlan = (cards: ReadingCardView[], interpretation: InterpretationMeta) => {
   const uniqueTags = Array.from(new Set(cards.flatMap((entry) => entry.card.adviceTags)))
   const plan = uniqueTags
     .map((tag) => {
@@ -441,7 +736,23 @@ const buildActionPlan = (cards: ReadingCardView[]) => {
       }
     })
     .filter((entry): entry is ActionPlanStep => entry !== null)
-    .slice(0, 3)
+    .slice(0, 2)
+
+  if (interpretation.elementalDynamics.conflicts.length > 0) {
+    plan.push({
+      id: 'step-conflict-reconcile',
+      title: '先解冲突再推进',
+      detail: '先处理最明显的内外部冲突，再启动下一步行动，避免重复消耗。',
+    })
+  } else if (interpretation.elementalDynamics.missing.length > 0) {
+    plan.push({
+      id: 'step-element-balance',
+      title: '补齐缺失维度',
+      detail: `针对${interpretation.elementalDynamics.missing
+        .map((entry) => formatSuitLabel(entry))
+        .join('、')}设计一个可执行动作，平衡整体节奏。`,
+    })
+  }
 
   const fallbackPlan: ActionPlanStep[] = [
     {
@@ -461,7 +772,22 @@ const buildActionPlan = (cards: ReadingCardView[]) => {
     },
   ]
 
-  return plan.length === 3 ? plan : [...plan, ...fallbackPlan].slice(0, 3)
+  return [...plan, ...fallbackPlan].slice(0, 3)
+}
+
+const resolveDepthLevel = (
+  cards: ReadingCardView[],
+  interpretation: InterpretationMeta,
+): ReadingDepthLevel => {
+  if (cards.length >= 3 && interpretation.ruleHits.length >= 3) {
+    return 'deep'
+  }
+
+  if (interpretation.ruleHits.length >= 1) {
+    return 'standard'
+  }
+
+  return 'shallow'
 }
 
 const getDominantSuit = (cards: ReadingCardView[]): MinorSuit | null => {
@@ -481,6 +807,22 @@ const getDominantSuit = (cards: ReadingCardView[]): MinorSuit | null => {
   )[0]
 
   return count > 0 ? (dominantSuit as MinorSuit) : null
+}
+
+const formatSuitLabel = (suit: MinorSuit) => {
+  if (suit === 'wands') {
+    return '火（权杖）'
+  }
+
+  if (suit === 'cups') {
+    return '水（圣杯）'
+  }
+
+  if (suit === 'swords') {
+    return '风（宝剑）'
+  }
+
+  return '土（星币）'
 }
 
 export const getSpreadPreviewPositions = (

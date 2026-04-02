@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { RecordCenter } from '../components/RecordCenter'
-import type { ReadingRecordV2 } from '../domain/tarot'
+import type { ReadingRecord } from '../domain/tarot'
 
 const createRecord = (
   id: string,
-  overrides: Partial<ReadingRecordV2> = {},
-): ReadingRecordV2 => ({
-  version: 2,
+  overrides: Partial<ReadingRecord> = {},
+): ReadingRecord => ({
+  version: 3,
   id,
   kind: 'reading',
   saved: false,
@@ -32,6 +32,11 @@ const createRecord = (
     eveningReview: '',
     resonance: null,
   },
+  depthLevel: 'standard',
+  depthSignals: [],
+  ruleHits: [],
+  queryFlags: [],
+  interpretationSummary: `总结-${id}`,
   ...overrides,
 })
 

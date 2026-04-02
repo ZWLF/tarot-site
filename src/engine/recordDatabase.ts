@@ -1,9 +1,10 @@
 import { openDB } from 'idb'
-import type { ReadingRecordV2 } from '../domain/tarot'
+import type { ReadingRecord } from '../domain/tarot'
 import {
   loadReadingRecords,
   normalizeReadingRecords,
   storeReadingRecords,
+  toReadingRecord,
 } from './storage'
 
 const DATABASE_NAME = 'ukiyo-tarot'
@@ -14,13 +15,13 @@ const RECORDS_KEY = 'records'
 export type RecordDatabaseBackend = 'indexeddb' | 'localstorage'
 
 interface PersistedRecordsPayload {
-  records: ReadingRecordV2[]
+  records: ReadingRecord[]
   updatedAt: string
 }
 
 interface HydratedRecordsResult {
   backend: RecordDatabaseBackend
-  records: ReadingRecordV2[]
+  records: ReadingRecord[]
 }
 
 const canUseIndexedDb = () =>
@@ -36,7 +37,7 @@ const getDatabase = () =>
   })
 
 export const persistReadingRecordsToDatabase = async (
-  records: ReadingRecordV2[],
+  records: ReadingRecord[],
 ): Promise<HydratedRecordsResult> => {
   const normalizedRecords = storeReadingRecords(records)
 
@@ -86,7 +87,11 @@ export const hydrateReadingRecordsFromDatabase = async (): Promise<HydratedRecor
     ) as PersistedRecordsPayload | undefined
 
     if (Array.isArray(storedPayload?.records) && storedPayload.records.length > 0) {
-      const normalizedRecords = normalizeReadingRecords(storedPayload.records)
+      const normalizedRecords = normalizeReadingRecords(
+        storedPayload.records
+          .map((record) => toReadingRecord(record))
+          .filter((record): record is ReadingRecord => record !== null),
+      )
       storeReadingRecords(normalizedRecords)
 
       return {

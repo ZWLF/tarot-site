@@ -65,6 +65,19 @@ const reading: ReadingResult = {
   ],
   tone: '关系进入重新校准期',
   dominantSignals: ['关系', '沟通', '边界'],
+  depthLevel: 'deep',
+  interpretation: {
+    depthSignals: ['牌阵存在元素冲突', '主导元素：风（宝剑）'],
+    ruleHits: ['R_ELM_01', 'R_REV_01'],
+    queryFlags: [],
+    softenedForSafety: false,
+    elementalDynamics: {
+      dominant: 'swords',
+      missing: ['wands', 'pentacles'],
+      conflicts: ['现状与阻碍存在元素冲突'],
+      harmonies: [],
+    },
+  },
 }
 
 describe('ReadingResultSection', () => {
@@ -104,6 +117,7 @@ describe('ReadingResultSection', () => {
       'ghost-button--icon-only',
     )
     expect(screen.getByTestId('follow-up-accordion')).not.toHaveAttribute('open')
+    expect(screen.getByTestId('deep-signals-panel')).toBeInTheDocument()
   })
 
   it('keeps the archive inputs writable through the existing handlers', () => {

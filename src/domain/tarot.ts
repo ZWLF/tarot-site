@@ -10,6 +10,7 @@ export type Suit = 'wands' | 'cups' | 'swords' | 'pentacles' | null
 export type Orientation = 'up' | 'down'
 export type OrientationMode = 'random' | 'up-only'
 export type DeckPerformanceMode = 'auto' | 'full' | 'lite'
+export type ReadingDepthLevel = 'shallow' | 'standard' | 'deep'
 export type DrawPool = 'any' | 'major' | 'wands' | 'cups' | 'swords' | 'pentacles'
 export type LayoutId =
   | 'single'
@@ -134,12 +135,38 @@ export interface PositionReading {
   orientation: Orientation
   message: string
   keywords: string[]
+  ruleTags?: InterpretationRuleTag[]
 }
 
 export interface ActionPlanStep {
   id: string
   title: string
   detail: string
+}
+
+export type InterpretationRuleTag =
+  | 'Internalized'
+  | 'Delayed'
+  | 'Conflict'
+  | 'Harmony'
+  | 'Element_Weak'
+  | 'Element_Strength'
+  | 'Major_Archetype'
+  | 'Sensitive_Query'
+
+export interface ElementalDynamics {
+  dominant: Exclude<Suit, null> | null
+  missing: Array<Exclude<Suit, null>>
+  conflicts: string[]
+  harmonies: string[]
+}
+
+export interface InterpretationMeta {
+  depthSignals: string[]
+  ruleHits: string[]
+  queryFlags: string[]
+  softenedForSafety: boolean
+  elementalDynamics: ElementalDynamics
 }
 
 export interface ReadingResult {
@@ -152,6 +179,8 @@ export interface ReadingResult {
   actionPlan: ActionPlanStep[]
   tone: string
   dominantSignals: string[]
+  depthLevel: ReadingDepthLevel
+  interpretation: InterpretationMeta
 }
 
 export interface FollowUpRecord {
@@ -210,3 +239,35 @@ export interface ReadingRecordV2 {
   followUps: FollowUpRecord[]
   dailyReflection: DailyReflection
 }
+
+export interface ReadingRecordV3 {
+  version: 3
+  id: string
+  kind: 'reading' | 'daily'
+  saved: boolean
+  createdAt: string
+  updatedAt: string
+  title: string
+  question: string
+  topicId: TopicId
+  topicLabel: string
+  spreadId: string
+  spreadTitle: string
+  variantId?: string
+  variantTitle?: string
+  tone: string
+  summary: string
+  dominantSignals: string[]
+  tags: string[]
+  cards: ReadingRecordV2Card[]
+  actionPlan: SavedActionPlanStep[]
+  followUps: FollowUpRecord[]
+  dailyReflection: DailyReflection
+  depthLevel: ReadingDepthLevel
+  depthSignals: string[]
+  ruleHits: string[]
+  queryFlags: string[]
+  interpretationSummary: string
+}
+
+export type ReadingRecord = ReadingRecordV3

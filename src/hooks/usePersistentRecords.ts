@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReadingRecordV2 } from '../domain/tarot'
+import type { ReadingRecord } from '../domain/tarot'
 import {
   hydrateReadingRecordsFromDatabase,
   persistReadingRecordsToDatabase,
@@ -14,7 +14,7 @@ import {
 } from '../engine/storage'
 
 export const usePersistentRecords = () => {
-  const [records, setRecords] = useState<ReadingRecordV2[]>(() => loadReadingRecords())
+  const [records, setRecords] = useState<ReadingRecord[]>(() => loadReadingRecords())
   const [storageBackend, setStorageBackend] =
     useState<RecordDatabaseBackend>('localstorage')
   const [storageReady, setStorageReady] = useState(false)
@@ -38,7 +38,7 @@ export const usePersistentRecords = () => {
     }
   }, [])
 
-  const persistRecords = (nextRecords: ReadingRecordV2[]) => {
+  const persistRecords = (nextRecords: ReadingRecord[]) => {
     setRecords(nextRecords)
 
     void persistReadingRecordsToDatabase(nextRecords).then((result) => {
@@ -54,7 +54,7 @@ export const usePersistentRecords = () => {
     return nextRecords
   }
 
-  const upsertRecord = (record: ReadingRecordV2) => {
+  const upsertRecord = (record: ReadingRecord) => {
     const nextRecords = saveReadingRecord(record)
     return persistRecords(nextRecords)
   }
