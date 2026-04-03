@@ -22,7 +22,7 @@
 - 结果解读：支持逐张揭牌、全部揭晓、五段式解读、行动计划、追问与收藏
 - 记录中心：支持自动归档、收藏、筛选、搜索、导入、导出与双记录对比
 - 牌卡百科：支持按当前抽牌聚焦查看，也支持浏览完整 78 张牌
-- 分享与导出：支持 Web Share / 剪贴板分享，以及 SVG 转 PNG 海报导出
+- 分享与导出：支持剪贴板分享，以及 SVG 转 PNG 海报导出
 
 ## 当前 UI / 内容层状态
 
@@ -78,6 +78,69 @@ npm.cmd run dev
 npm run build
 npm run preview
 ```
+
+## 部署流程
+
+本项目是纯前端静态站点，没有后端服务、数据库或环境变量依赖。部署时只需要构建 `dist/` 并发布到任意静态托管平台即可。
+
+### 1. 部署前检查
+
+建议在发布前先跑一遍基础校验：
+
+```bash
+npm ci
+npm run lint
+npm test
+npm run build
+```
+
+如果你需要连浏览器流程一起验，可以额外执行：
+
+```bash
+npm run test:e2e
+```
+
+### 2. 产出部署文件
+
+执行构建后，最终需要发布的目录是：
+
+```bash
+dist/
+```
+
+Vite 配置中的 `base` 已设置为 `./`，因此这个项目适合部署到 GitHub Pages、Netlify、Vercel，或任何支持静态文件托管的环境。
+
+### 3. GitHub Pages 部署
+
+适合直接从当前 GitHub 仓库发布静态站点。
+
+1. 将代码推送到 GitHub 仓库。
+2. 在仓库中进入 `Settings -> Pages`。
+3. 将发布方式设为 `GitHub Actions`。
+4. 创建一个用于构建并发布 `dist/` 的 Pages workflow。
+5. 每次推送后，由 GitHub Actions 执行 `npm ci`、`npm run build`，并发布 `dist/`。
+
+如果你想手动发布，也可以本地构建后把 `dist/` 内容部署到 Pages 对应分支，但推荐使用 Actions，流程更稳定。
+
+### 4. Vercel / Netlify 部署
+
+这两个平台都可以按标准 Vite 静态站点配置：
+
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Node 版本：使用当前 LTS 即可
+- Environment Variables: 不需要
+
+导入 GitHub 仓库后，按上面这组参数配置即可完成自动部署。
+
+### 5. 隐私与数据说明
+
+- 用户抽牌记录只保存在浏览器本地的 `localStorage + IndexedDB`
+- 生产构建会注入 CSP 与 `Referrer-Policy: no-referrer`
+- 项目不会主动把占卜记录上传到服务器
+- 如果更换部署域名或从本地切到线上站点，旧域名下的本地记录不会自动迁移
+
+如果你要迁移本地记录，应该使用应用内的 JSON 导出 / 导入，而不是依赖部署平台同步。
 
 ## 常用命令
 
