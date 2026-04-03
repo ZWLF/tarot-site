@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createReading } from '../engine/reading'
-import { buildReadingPosterSvg, buildReadingShareText } from '../lib/share'
+import {
+  buildReadingPosterSvg,
+  buildReadingShareText,
+  shareText,
+} from '../lib/share'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('share helpers', () => {
   it('builds readable share text', () => {
@@ -46,5 +54,28 @@ describe('share helpers', () => {
     expect(svg.startsWith('<svg')).toBe(true)
     expect(svg).toContain('月度海报')
     expect(svg).toContain(reading.cards[0].card.nameZh)
+  })
+
+  it('prefers local clipboard copy and never calls system share', async () => {
+    const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
+    const navigatorShare = vi.fn().mockResolvedValue(undefined)
+
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: clipboardWriteText,
+      },
+    })
+
+    Object.defineProperty(globalThis.navigator, 'share', {
+      configurable: true,
+      value: navigatorShare,
+    })
+
+    const result = await shareText('浮世塔罗', '只复制，不外发')
+
+    expect(clipboardWriteText).toHaveBeenCalledWith('只复制，不外发')
+    expect(navigatorShare).not.toHaveBeenCalled()
+    expect(result).toBe('分享文案已复制到剪贴板。')
   })
 })

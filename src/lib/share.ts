@@ -135,17 +135,17 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
 }
 
 export const shareText = async (title: string, text: string) => {
-  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-    await navigator.share({ title, text })
-    return '已调用系统分享面板。'
-  }
-
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text)
     return '分享文案已复制到剪贴板。'
   }
 
-  throw new Error('当前环境不支持系统分享或剪贴板复制。')
+  if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+    window.prompt(`${title}：请手动复制以下内容`, text)
+    return '当前环境不支持剪贴板，已打开手动复制面板。'
+  }
+
+  throw new Error('当前环境不支持剪贴板复制。为保护隐私，已禁用系统分享。')
 }
 
 export const downloadPosterPng = async (
