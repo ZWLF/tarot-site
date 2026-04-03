@@ -50,12 +50,12 @@ interface AppProps {
 type RecordFilter = 'all' | 'saved' | 'auto' | 'daily'
 type NavSection = 'daily' | 'reading' | 'result' | 'records' | 'encyclopedia'
 
-const NAV_ITEMS: Array<{ id: NavSection; label: string }> = [
-  { id: 'daily', label: '每日一张' },
-  { id: 'reading', label: '开始占卜' },
-  { id: 'result', label: '结果解读' },
-  { id: 'records', label: '记录中心' },
-  { id: 'encyclopedia', label: '牌卡百科' },
+const NAV_ITEMS: Array<{ id: NavSection; label: string; subtitle: string }> = [
+  { id: 'daily', label: '每日一张', subtitle: 'Daily Guidance' },
+  { id: 'reading', label: '开始占卜', subtitle: 'Ritual Studio' },
+  { id: 'result', label: '结果解读', subtitle: 'Reading Report' },
+  { id: 'records', label: '记录中心', subtitle: 'Record Center' },
+  { id: 'encyclopedia', label: '牌卡百科', subtitle: 'Card Encyclopedia' },
 ]
 
 const scrollToSection = (sectionId: string) => {
@@ -270,8 +270,33 @@ function App({ shuffleDelayMs }: AppProps) {
     records.some((record) => record.id === id),
   )
 
+  const renderNavButton = (
+    item: (typeof NAV_ITEMS)[number],
+    compact = false,
+    mode: 'top' | 'side' | 'mobile' = 'side',
+  ) => (
+    <button
+      key={item.id}
+      aria-current={navSection === item.id ? 'page' : undefined}
+      aria-label={
+        mode === 'mobile' ? item.label : `${mode === 'top' ? '顶部' : '侧边'}导航：${item.label}`
+      }
+      className={`stitch-nav-button ${navSection === item.id ? 'is-active' : ''} ${
+        compact ? 'is-compact' : ''
+      }`}
+      type="button"
+      onClick={() => {
+        setNavSection(item.id)
+        scrollToSection(item.id)
+      }}
+    >
+      <span className="stitch-nav-button__label">{item.label}</span>
+      {!compact ? <small>{item.subtitle}</small> : null}
+    </button>
+  )
+
   return (
-    <div className="app-shell">
+    <div className="stitch-app bg-surface-container-lowest text-on-surface">
       <input
         ref={importInputRef}
         accept="application/json"
@@ -280,108 +305,116 @@ function App({ shuffleDelayMs }: AppProps) {
         onChange={handleImportRecords}
       />
 
-      <header className="hero panel">
-        <div className="hero__seal">
-          <span className="hero__seal-mark">浮世</span>
-          <span className="hero__seal-sub">UKIYO TAROT</span>
-        </div>
-        <div className="hero__copy">
-          <p className="eyebrow">Tarot Salon</p>
-          <RevealText
-            as="h1"
-            className="hero__title"
-            text="把抽到的 78 张牌，真正铺上桌面。"
-          />
-          <p className="hero__lede">
-            浮世塔罗把每日一张、深度牌阵、记录归档、追问与分享海报接成一条完整的解读动线。
-          </p>
-          <div className="hero__meta">
-            <span>78 张独立牌面</span>
-            <span>11 套牌阵</span>
-            <span>{storageBackend === 'indexeddb' ? 'IndexedDB 记录中心' : '本地记录中心'}</span>
-            <span>PNG 海报导出</span>
+      <header className="stitch-topbar">
+        <div className="stitch-topbar__inner">
+          <div className="stitch-brand">
+            <span className="stitch-brand__mark">浮世塔罗</span>
+            <span className="stitch-brand__sub">UKIYO TAROT</span>
           </div>
+          <nav className="stitch-topbar__nav" aria-label="主导航">
+            {NAV_ITEMS.map((item) => renderNavButton(item, true, 'top'))}
+          </nav>
         </div>
       </header>
 
-      <div className="layout">
-        <nav className="panel section step-nav" aria-label="页面导航">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              aria-current={navSection === item.id ? 'page' : undefined}
-              aria-label={`跳转到 ${item.label}`}
-              className={`pill ${navSection === item.id ? 'is-active' : ''}`}
-              type="button"
-              onClick={() => {
-                setNavSection(item.id)
-                scrollToSection(item.id)
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+      <aside className="stitch-sidenav" aria-label="侧边导航">
+        <div className="stitch-sidenav__heading">
+          <p className="eyebrow">The Obsidian Sanctuary</p>
+          <h2>你的专属占卜仪式空间</h2>
+        </div>
+        <nav className="stitch-sidenav__nav" aria-label="分区导航">
+          {NAV_ITEMS.map((item) => renderNavButton(item, false, 'side'))}
         </nav>
+      </aside>
 
-        <DailyPanel
-          dailyLabel={dailyLabel}
-          dailyMessage={dailyMessage}
-          dailyRevealed={dailyRevealed}
-          entry={dailyReading.cards[0]}
-          onDownloadPoster={handleDownloadDailyPoster}
-          onReveal={handleRevealDaily}
-          onShare={handleShareDaily}
-        />
+      <main className="stitch-main">
+        <div className="layout stitch-layout">
+          <section className="panel stitch-hero" aria-label="首页引导">
+            <div className="stitch-hero__text">
+              <p className="eyebrow">Tarot Salon</p>
+              <RevealText as="h1" className="hero__title" text="把抽到的 78 张牌，真正铺上桌面。" />
+              <p className="hero__lede">
+                浮世塔罗把每日一张、深度牌阵、记录归档、追问与分享海报接成一条完整的解读动线。
+              </p>
+              <div className="hero__meta">
+                <span>78 张独立牌面</span>
+                <span>11 套牌阵</span>
+                <span>{storageBackend === 'indexeddb' ? 'IndexedDB 记录中心' : '本地记录中心'}</span>
+                <span>PNG 海报导出</span>
+              </div>
+            </div>
+            <div className="stitch-hero__cta">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => {
+                  setNavSection('reading')
+                  scrollToSection('reading')
+                }}
+              >
+                开始仪式占卜
+              </button>
+            </div>
+          </section>
 
-        <GuidePanel
-          dismissed={guideDismissed}
-          onDismiss={() => setGuideDismissed(true)}
-          onRestore={() => setGuideDismissed(false)}
-        />
+          <DailyPanel
+            dailyLabel={dailyLabel}
+            dailyMessage={dailyMessage}
+            dailyRevealed={dailyRevealed}
+            entry={dailyReading.cards[0]}
+            onDownloadPoster={handleDownloadDailyPoster}
+            onReveal={handleRevealDaily}
+            onShare={handleShareDaily}
+          />
 
-        <ReadingStudioSection
-          canDraw={readingSession.canDraw}
-          drawNotice={readingSession.drawNotice}
-          isShuffling={readingSession.isShuffling}
-          needsReDrawConfirm={readingSession.needsReDrawConfirm}
-          onDraw={readingSession.handleDraw}
-          onQuestionChange={readingSession.updateQuestion}
-          onSelectSpread={readingSession.handleSelectSpread}
-          onSelectTopic={readingSession.updateTopic}
-          onSelectVariant={readingSession.updateVariant}
-          question={readingSession.question}
-          selectedSpread={readingSession.selectedSpread}
-          selectedTopic={readingSession.selectedTopic}
-          selectedVariant={readingSession.selectedVariant}
-          spreadId={readingSession.spreadId}
-          topic={readingSession.topic}
-          variantId={readingSession.variantId}
-        />
+          <GuidePanel
+            dismissed={guideDismissed}
+            onDismiss={() => setGuideDismissed(true)}
+            onRestore={() => setGuideDismissed(false)}
+          />
 
-        <ReadingResultSection
-          actionPlanDoneIds={readingSession.actionPlanDoneIds}
-          followUpQuestion={readingSession.followUpQuestion}
-          followUpSuggestions={FOLLOW_UP_SUGGESTIONS}
-          followUps={readingSession.followUps}
-          onDownloadPoster={readingSession.handleDownloadReadingPoster}
-          onFollowUpQuestionChange={readingSession.setFollowUpQuestion}
-          onRecordTagsChange={readingSession.setRecordTagsInput}
-          onRecordTitleChange={readingSession.setRecordTitle}
-          onReveal={readingSession.handleReveal}
-          onRevealAll={readingSession.handleRevealAll}
-          onSaveReading={readingSession.handleSaveReading}
-          onShareReading={readingSession.handleShareReading}
-          onSubmitFollowUp={readingSession.handleFollowUp}
-          onToggleActionPlan={readingSession.handleToggleActionPlan}
-          reading={readingSession.reading}
-          recordNotice={readingSession.recordNotice}
-          recordTagsInput={readingSession.recordTagsInput}
-          recordTitle={readingSession.recordTitle}
-          revealedPositions={readingSession.revealedPositions}
-          shareMessage={readingSession.shareMessage}
-        />
+          <ReadingStudioSection
+            canDraw={readingSession.canDraw}
+            drawNotice={readingSession.drawNotice}
+            isShuffling={readingSession.isShuffling}
+            needsReDrawConfirm={readingSession.needsReDrawConfirm}
+            onDraw={readingSession.handleDraw}
+            onQuestionChange={readingSession.updateQuestion}
+            onSelectSpread={readingSession.handleSelectSpread}
+            onSelectTopic={readingSession.updateTopic}
+            onSelectVariant={readingSession.updateVariant}
+            question={readingSession.question}
+            selectedSpread={readingSession.selectedSpread}
+            selectedTopic={readingSession.selectedTopic}
+            selectedVariant={readingSession.selectedVariant}
+            spreadId={readingSession.spreadId}
+            topic={readingSession.topic}
+            variantId={readingSession.variantId}
+          />
 
-        <div id="records">
+          <ReadingResultSection
+            actionPlanDoneIds={readingSession.actionPlanDoneIds}
+            followUpQuestion={readingSession.followUpQuestion}
+            followUpSuggestions={FOLLOW_UP_SUGGESTIONS}
+            followUps={readingSession.followUps}
+            onDownloadPoster={readingSession.handleDownloadReadingPoster}
+            onFollowUpQuestionChange={readingSession.setFollowUpQuestion}
+            onRecordTagsChange={readingSession.setRecordTagsInput}
+            onRecordTitleChange={readingSession.setRecordTitle}
+            onReveal={readingSession.handleReveal}
+            onRevealAll={readingSession.handleRevealAll}
+            onSaveReading={readingSession.handleSaveReading}
+            onShareReading={readingSession.handleShareReading}
+            onSubmitFollowUp={readingSession.handleFollowUp}
+            onToggleActionPlan={readingSession.handleToggleActionPlan}
+            reading={readingSession.reading}
+            recordNotice={readingSession.recordNotice}
+            recordTagsInput={readingSession.recordTagsInput}
+            recordTitle={readingSession.recordTitle}
+            revealedPositions={readingSession.revealedPositions}
+            shareMessage={readingSession.shareMessage}
+          />
+
           <LazySection fallback={<LazySectionFallback id="records-fallback" title="记录中心" />}>
             <Suspense fallback={<LazySectionFallback id="records-fallback" title="记录中心" />}>
               <RecordCenter
@@ -399,27 +432,33 @@ function App({ shuffleDelayMs }: AppProps) {
                 query={recordQuery}
                 records={records}
                 recordsMessage={recordsMessage}
-                sectionId={undefined}
+                sectionId="records"
                 storageBackend={storageBackend}
                 storageReady={storageReady}
                 tagFilter={recordTagFilter}
               />
             </Suspense>
           </LazySection>
-        </div>
 
-        <section id="encyclopedia">
-          <LazySection
-            fallback={<LazySectionFallback id="encyclopedia-fallback" title="牌卡百科" />}
-          >
-            <Suspense
+          <section id="encyclopedia">
+            <LazySection
               fallback={<LazySectionFallback id="encyclopedia-fallback" title="牌卡百科" />}
             >
-              <CardEncyclopedia featuredCardIds={featuredCardIds} />
-            </Suspense>
-          </LazySection>
-        </section>
-      </div>
+              <Suspense
+                fallback={<LazySectionFallback id="encyclopedia-fallback" title="牌卡百科" />}
+              >
+                <CardEncyclopedia featuredCardIds={featuredCardIds} />
+              </Suspense>
+            </LazySection>
+          </section>
+        </div>
+      </main>
+
+      <nav className="stitch-mobile-nav" aria-label="移动端导航">
+        {NAV_ITEMS.map((item) => renderNavButton(item, true, 'mobile'))}
+      </nav>
+
+      <div className="stitch-mobile-spacer" />
     </div>
   )
 }

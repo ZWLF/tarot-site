@@ -11,8 +11,11 @@ describe('text effects', () => {
   })
 
   it('renders blur text without hiding readable summary content', () => {
-    render(<BlurText text="抽到的牌面提醒你放慢节奏。" />)
+    render(<BlurText text={'抽到的牌面提醒你放慢节奏。\n\n先把行动拆小再推进。'} />)
 
-    expect(screen.getByText('抽到的牌面提醒你放慢节奏。')).toBeInTheDocument()
+    const paragraph = screen.getByText(/抽到的牌面提醒你放慢节奏/)
+    expect(paragraph).toHaveTextContent('抽到的牌面提醒你放慢节奏。')
+    expect(paragraph).toHaveTextContent('先把行动拆小再推进。')
+    expect(paragraph).toHaveStyle({ whiteSpace: 'pre-line' })
   })
 })

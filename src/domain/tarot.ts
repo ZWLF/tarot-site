@@ -56,10 +56,18 @@ export interface MinorArcanaCard extends TarotCardBase {
 
 export type TarotCard = MajorArcanaCard | MinorArcanaCard
 
+export interface SpreadGuide {
+  bestFor: string
+  chooseWhen: string
+  timeCost: string
+  avoidWhen?: string
+}
+
 export interface SpreadPosition {
   key: string
   label: string
   prompt: string
+  meaningHint: string
   drawPool?: DrawPool
 }
 
@@ -67,6 +75,7 @@ export interface SpreadVariantDefinition {
   id: string
   title: string
   description: string
+  guide: SpreadGuide
   positions: SpreadPosition[]
 }
 
@@ -74,6 +83,7 @@ export interface SpreadDefinition {
   id: string
   title: string
   description: string
+  guide: SpreadGuide
   cardCount: number
   layoutId: LayoutId
   positions: SpreadPosition[]
@@ -123,6 +133,7 @@ export interface ReadingCardView {
   card: TarotCard
   art: CardArtManifest
   positionLabel: string
+  meaningHint: string
   prompt: string
 }
 
@@ -169,12 +180,30 @@ export interface InterpretationMeta {
   elementalDynamics: ElementalDynamics
 }
 
+export interface NarrativeMeta {
+  targetLength: number
+  actualLength: number
+  coverageScore: number
+  validationPassed: boolean
+}
+
+export interface ReportSections {
+  coreConclusion: string
+  currentState: string
+  riskAlert: string
+  actionFocus: string
+  reviewPrompt: string
+}
+
 export interface ReadingResult {
   input: ReadingInput
   spread: ResolvedSpreadDefinition
   cards: ReadingCardView[]
   positionReadings: PositionReading[]
+  reportSections: ReportSections
   summary: string
+  deepNarrative: string
+  narrativeMeta: NarrativeMeta
   advice: string[]
   actionPlan: ActionPlanStep[]
   tone: string
@@ -268,6 +297,41 @@ export interface ReadingRecordV3 {
   ruleHits: string[]
   queryFlags: string[]
   interpretationSummary: string
+  deepNarrative: string
+  narrativeMeta: NarrativeMeta
 }
 
-export type ReadingRecord = ReadingRecordV3
+export interface ReadingRecordV4 {
+  version: 4
+  id: string
+  kind: 'reading' | 'daily'
+  saved: boolean
+  createdAt: string
+  updatedAt: string
+  title: string
+  question: string
+  topicId: TopicId
+  topicLabel: string
+  spreadId: string
+  spreadTitle: string
+  variantId?: string
+  variantTitle?: string
+  tone: string
+  summary: string
+  dominantSignals: string[]
+  tags: string[]
+  cards: ReadingRecordV2Card[]
+  actionPlan: SavedActionPlanStep[]
+  followUps: FollowUpRecord[]
+  dailyReflection: DailyReflection
+  depthLevel: ReadingDepthLevel
+  depthSignals: string[]
+  ruleHits: string[]
+  queryFlags: string[]
+  interpretationSummary: string
+  deepNarrative: string
+  narrativeMeta: NarrativeMeta
+  reportSections: ReportSections
+}
+
+export type ReadingRecord = ReadingRecordV4

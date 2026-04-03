@@ -119,7 +119,7 @@ export function CardEncyclopedia({ featuredCardIds }: CardEncyclopediaProps) {
     null
 
   return (
-    <section className="panel section encyclopedia-panel">
+    <section className="panel section encyclopedia-panel stitch-panel stitch-panel--encyclopedia">
       <div className="section__heading">
         <div>
           <p className="eyebrow">Step 09</p>

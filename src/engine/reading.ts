@@ -9,7 +9,9 @@ import type {
   ElementalDynamics,
   InterpretationMeta,
   InterpretationRuleTag,
+  NarrativeMeta,
   OrientationMode,
+  ReportSections,
   ReadingCardView,
   ReadingDepthLevel,
   ReadingInput,
@@ -37,6 +39,88 @@ interface QueryGuardResult {
 interface InterpretationBuildResult {
   meta: InterpretationMeta
   positionRuleTags: Record<string, InterpretationRuleTag[]>
+}
+
+interface NarrativeBuildResult {
+  text: string
+  meta: NarrativeMeta
+}
+
+interface ReasoningGraphNode {
+  positionKey: string
+  positionLabel: string
+  prompt: string
+  cardId: string
+  cardName: string
+  orientation: 'up' | 'down'
+  element: MinorSuit | 'major'
+  role: string
+  archetype: string
+  orientationModifier: 'Direct' | 'Internalized'
+  reversedLens?: string
+}
+
+interface ReasoningGraphRelation {
+  type: 'conflict' | 'harmony'
+  from: string
+  to: string
+  reason: string
+}
+
+interface ReasoningGraph {
+  queryContext: {
+    original: string
+    reframed: string
+    actionFocus: string
+    safetyNote?: string
+  }
+  nodes: ReasoningGraphNode[]
+  relations: ReasoningGraphRelation[]
+  dominantElement: MinorSuit | null
+  missingElements: MinorSuit[]
+  majorWeight: number
+  majorAnchors: string[]
+  probableTrajectory: string
+  interventionPoints: string[]
+  coverageLabels: string[]
+}
+
+type ReversedLensKey =
+  | 'internalized'
+  | 'delayed'
+  | 'misaligned'
+  | 'excess'
+  | 'imbalanced'
+
+const REVERSED_LENS_COPY: Record<
+  ReversedLensKey,
+  { label: string; line: string; narrativeLine: string }
+> = {
+  internalized: {
+    label: '内化',
+    line: '逆位在这里更像感受被压回内层，问题没有消失，只是暂时没有被直接表达。',
+    narrativeLine: '这张逆位更像“内化”，说明真正的拉扯先发生在内部感受层。',
+  },
+  delayed: {
+    label: '延迟',
+    line: '逆位在这里更像节奏被拖慢，结果不会立刻显形，需要先处理阻滞再推进。',
+    narrativeLine: '这张逆位更像“延迟”，提示你不要用急推进去对抗未处理的阻滞。',
+  },
+  misaligned: {
+    label: '错配',
+    line: '逆位在这里更像判断与行动没有对齐，越急着推进越容易偏离重点。',
+    narrativeLine: '这张逆位更像“错配”，表示目标、判断或表达方式还没有对上。',
+  },
+  excess: {
+    label: '过度',
+    line: '逆位在这里更像用力过度，表面在推进，底层却在持续消耗。',
+    narrativeLine: '这张逆位更像“过度”，说明问题不只是没动，而是已经开始透支。',
+  },
+  imbalanced: {
+    label: '失衡',
+    line: '逆位在这里更像结构失衡，某个关键维度被放大或被忽略了。',
+    narrativeLine: '这张逆位更像“失衡”，说明当前结构里有一块被过度强调或长期忽略。',
+  },
 }
 
 const SUIT_LENSES: Record<MinorSuit, Record<TopicId, string>> = {
@@ -198,6 +282,23 @@ const SENSITIVE_QUERY_PATTERNS: Array<{ flag: string; pattern: RegExp }> = [
   { flag: 'forced-decision', pattern: /(该不该|必须选|A还是B|帮我决定|替我决定)/i },
 ]
 
+const NARRATIVE_LENGTH_POINTS: Array<{ cards: number; length: number }> = [
+  { cards: 1, length: 450 },
+  { cards: 3, length: 900 },
+  { cards: 5, length: 1400 },
+  { cards: 10, length: 2200 },
+]
+
+const FATALISTIC_TERMS = ['一定', '必须', '注定', '绝对', '毫无疑问']
+
+const METHODOLOGY_CORE_MODELS = [
+  '以共时性与原型共振解释牌面为何能映照当下心理状态。',
+  '把图像视作可流动的视觉语言，而非僵硬关键词。',
+  '用元素生克与牌间关系判断能量强化或冲突。',
+  '以境遇五要素拆解问题：不可抗力、业力循环、性格倾向、经验结构、行动杠杆。',
+  '把“会不会”重构为“在当前轨迹下最可能如何、我能如何改变”。',
+]
+
 const getSpread = (spreadId: string) => {
   const spread = SPREADS.find((item) => item.id === spreadId)
 
@@ -226,6 +327,7 @@ const resolveSpread = (
     id: spread.id,
     title: spread.title,
     description: spread.description,
+    guide: variant?.guide ?? spread.guide,
     cardCount: spread.cardCount,
     layoutId: spread.layoutId,
     summaryFrame: spread.summaryFrame,
@@ -285,21 +387,52 @@ export const createReading = (
   const interpretationBuild = buildInterpretation(cards, input)
   const tone = buildTone(cards)
   const dominantSignals = buildDominantSignals(cards, input.topic, interpretationBuild.meta)
+  const positionReadings = cards.map((entry) =>
+    buildPositionReading(
+      entry,
+      input.topic,
+      interpretationBuild.positionRuleTags[entry.drawn.positionKey] ?? [],
+    ),
+  )
+  const summary = buildSummary(cards, input, spread, tone, interpretationBuild.meta)
+  const advice = buildAdvice(cards, input.topic, interpretationBuild.meta)
+  const actionPlan = buildActionPlan(cards, interpretationBuild.meta)
+  const reportSections = buildReportSections({
+    cards,
+    input,
+    spread,
+    summary,
+    tone,
+    interpretation: interpretationBuild.meta,
+    actionPlan,
+  })
+  const reasoningGraph = buildReasoningGraph({
+    cards,
+    input,
+    interpretation: interpretationBuild.meta,
+    positionRuleTags: interpretationBuild.positionRuleTags,
+  })
+  const narrativeBuild = buildDeepNarrative({
+    input,
+    cards,
+    spread,
+    interpretation: interpretationBuild.meta,
+    reasoningGraph,
+    actionPlan,
+    summary,
+  })
 
   return {
     input,
     spread,
     cards,
-    positionReadings: cards.map((entry) =>
-      buildPositionReading(
-        entry,
-        input.topic,
-        interpretationBuild.positionRuleTags[entry.drawn.positionKey] ?? [],
-      ),
-    ),
-    summary: buildSummary(cards, input, spread, tone, interpretationBuild.meta),
-    advice: buildAdvice(cards, input.topic, interpretationBuild.meta),
-    actionPlan: buildActionPlan(cards, interpretationBuild.meta),
+    positionReadings,
+    reportSections,
+    summary,
+    deepNarrative: narrativeBuild.text,
+    narrativeMeta: narrativeBuild.meta,
+    advice,
+    actionPlan,
     tone,
     dominantSignals,
     depthLevel: resolveDepthLevel(cards, interpretationBuild.meta),
@@ -322,6 +455,7 @@ const createCardView = (
     card: CARD_BY_ID[drawn.cardId],
     art: CARD_ART_MANIFEST[drawn.cardId],
     positionLabel: position.label,
+    meaningHint: position.meaningHint,
     prompt: position.prompt,
   }
 }
@@ -403,6 +537,9 @@ const buildInterpretation = (
 
   if (queryGuard.softenedForSafety) {
     ruleHits.add('R_VAL_SOFTEN')
+    cards.forEach((entry) => {
+      positionTagSets[entry.drawn.positionKey].add('Sensitive_Query')
+    })
   }
 
   const depthSignals = buildDepthSignals(
@@ -518,6 +655,163 @@ const getElementalDynamics = (cards: ReadingCardView[]): ElementalDynamics => {
   }
 }
 
+const resolveReversedLensKey = (
+  entry: ReadingCardView,
+  ruleTags: InterpretationRuleTag[],
+): ReversedLensKey => {
+  if (ruleTags.includes('Conflict')) {
+    return 'misaligned'
+  }
+
+  if (entry.card.arcana === 'major') {
+    return 'imbalanced'
+  }
+
+  if (entry.card.suit === 'cups') {
+    return 'internalized'
+  }
+
+  if (entry.card.suit === 'pentacles') {
+    return 'delayed'
+  }
+
+  if (entry.card.suit === 'wands') {
+    return 'excess'
+  }
+
+  return 'misaligned'
+}
+
+const buildReversedLens = (
+  entry: ReadingCardView,
+  ruleTags: InterpretationRuleTag[],
+) => {
+  const key = resolveReversedLensKey(entry, ruleTags)
+
+  return REVERSED_LENS_COPY[key]
+}
+
+const joinSectionText = (parts: Array<string | null | undefined>) =>
+  parts
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join('')
+
+const getLeadingSentences = (text: string, count: number) => {
+  const sentences = text
+    .split('。')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, count)
+
+  if (sentences.length === 0) {
+    return text.trim()
+  }
+
+  return `${sentences.join('。')}。`
+}
+
+const buildCurrentStateSection = (
+  cards: ReadingCardView[],
+  tone: string,
+  interpretation: InterpretationMeta,
+) => {
+  const dominantSuit = getDominantSuit(cards)
+  const reversedCount = cards.filter((entry) => entry.drawn.orientation === 'down').length
+  const base =
+    dominantSuit !== null
+      ? `当前主调落在${formatSuitLabel(dominantSuit)}，整体气质偏向${tone}。`
+      : `当前没有单一元素压倒性主导，整体更像${tone}中的多线并行。`
+
+  if (reversedCount === 0) {
+    return `${base} 眼前更适合顺着已经显形的线索继续推进。`
+  }
+
+  if (reversedCount >= Math.ceil(cards.length / 2)) {
+    return `${base} 逆位偏多，说明外部动作之前，内部校准和节奏整理更重要。`
+  }
+
+  if (interpretation.elementalDynamics.conflicts.length > 0) {
+    return `${base} 目前最大张力来自内外节奏没有对齐。`
+  }
+
+  return `${base} 局面可以往前推，但需要边推进边校准。`
+}
+
+const buildRiskAlertSection = (
+  cards: ReadingCardView[],
+  interpretation: InterpretationMeta,
+) => {
+  if (interpretation.softenedForSafety) {
+    return '这个问题带有高风险判断色彩，不适合把塔罗当成结论机器，更适合把它当成校准视角。'
+  }
+
+  if (interpretation.elementalDynamics.conflicts.length > 0) {
+    return '最大的风险不是没机会，而是你一边想推进，一边又被内部拉扯和现实条件抵消。'
+  }
+
+  if (interpretation.elementalDynamics.missing.length > 0) {
+    return `当前最容易失衡的是${interpretation.elementalDynamics.missing
+      .map((entry) => formatSuitLabel(entry))
+      .join('、')}，忽略这部分会让后续动作看起来忙却不够准。`
+  }
+
+  const reversedEntries = cards.filter((entry) => entry.drawn.orientation === 'down')
+  if (reversedEntries.length > 0) {
+    const reversedLabels = Array.from(
+      new Set(reversedEntries.map((entry) => buildReversedLens(entry, []).label)),
+    )
+    return `风险点更多在${reversedLabels.join('、')}层面，问题不是单纯受阻，而是推进方式需要重新校准。`
+  }
+
+  return '真正要防的不是外部变化，而是你因为熟悉感而忽略了已经出现的新信号。'
+}
+
+const buildActionFocusSection = (
+  input: ReadingInput,
+  actionPlan: ActionPlanStep[],
+) => {
+  const leadStep = actionPlan[0]
+  if (!leadStep) {
+    return TOPIC_ACTION_FOCUS[input.topic]
+  }
+
+  return `先把「${leadStep.title}」落地：${leadStep.detail}`
+}
+
+const buildReviewPromptSection = (
+  spread: ResolvedSpreadDefinition,
+  actionPlan: ActionPlanStep[],
+) => {
+  const leadStep = actionPlan[0]?.title ?? '第一个关键动作'
+
+  return `回看这个问题时，先问自己：我是否真的完成了「${leadStep}」，以及它是否让${spread.title}里最在意的那条主线变得更清楚？`
+}
+
+const buildReportSections = ({
+  cards,
+  input,
+  spread,
+  summary,
+  tone,
+  interpretation,
+  actionPlan,
+}: {
+  cards: ReadingCardView[]
+  input: ReadingInput
+  spread: ResolvedSpreadDefinition
+  summary: string
+  tone: string
+  interpretation: InterpretationMeta
+  actionPlan: ActionPlanStep[]
+}): ReportSections => ({
+  coreConclusion: getLeadingSentences(summary, 2),
+  currentState: buildCurrentStateSection(cards, tone, interpretation),
+  riskAlert: buildRiskAlertSection(cards, interpretation),
+  actionFocus: buildActionFocusSection(input, actionPlan),
+  reviewPrompt: buildReviewPromptSection(spread, actionPlan),
+})
+
 const buildPositionReading = (
   entry: ReadingCardView,
   topic: TopicId,
@@ -527,10 +821,12 @@ const buildPositionReading = (
     entry.card.arcana === 'major'
       ? '这张大阿尔卡那说明此处牵动的是阶段性课题，而不是短暂波动。'
       : SUIT_LENSES[entry.card.suit][topic]
+  const reversedLens =
+    entry.drawn.orientation === 'down' ? buildReversedLens(entry, ruleTags) : null
   const orientationLine =
     entry.drawn.orientation === 'up'
       ? '正位让这股力量更直接地显形。'
-      : '逆位在这里更像能量内化或暂时受阻，需要先整理再推进。'
+      : reversedLens?.line ?? '逆位在这里更像能量内化或暂时受阻，需要先整理再推进。'
   const dynamicLine = getDynamicLine(ruleTags)
 
   return {
@@ -540,7 +836,17 @@ const buildPositionReading = (
     cardId: entry.card.id,
     cardName: `${entry.card.nameZh} · ${entry.drawn.orientation === 'up' ? '正位' : '逆位'}`,
     orientation: entry.drawn.orientation,
-    message: `${entry.positionLabel}位关注${entry.prompt}。${entry.card.meaning[entry.drawn.orientation]}${suitLine}${orientationLine}${dynamicLine}${TOPIC_BY_ID[topic].framing}`,
+    message: joinSectionText([
+      `${entry.positionLabel}位主要看${entry.meaningHint}。`,
+      entry.card.meaning[entry.drawn.orientation],
+      suitLine,
+      entry.drawn.orientation === 'down' && reversedLens
+        ? `这张逆位更接近${reversedLens.label}：`
+        : null,
+      orientationLine,
+      dynamicLine,
+      TOPIC_BY_ID[topic].framing,
+    ]),
     keywords:
       entry.drawn.orientation === 'up'
         ? entry.card.keywords.up.slice(0, 3)
@@ -673,9 +979,18 @@ const buildSummary = (
   if (reversedCount === 0) {
     parts.push('顺位流动较完整，重点是保持方向一致，不要被短期噪音带偏。')
   } else if (reversedCount >= Math.ceil(cards.length / 2)) {
-    parts.push('逆位偏多，当前更适合先整理内部卡点，再推进外部动作。')
+    const reversedLabels = Array.from(
+      new Set(
+        cards
+          .filter((entry) => entry.drawn.orientation === 'down')
+          .map((entry) => buildReversedLens(entry, []).label),
+      ),
+    )
+    parts.push(
+      `逆位偏多，当前更适合先处理${reversedLabels.join('、')}层面的校准，再推进外部动作。`,
+    )
   } else {
-    parts.push('顺逆位交错，外部机会可推进，但内部仍需要更细致的校准。')
+    parts.push('顺逆位交错，外部机会可以推进，但内部仍需要更细致地校准节奏与方式。')
   }
 
   parts.push(TOPIC_ACTION_FOCUS[input.topic])
@@ -773,6 +1088,466 @@ const buildActionPlan = (cards: ReadingCardView[], interpretation: Interpretatio
   ]
 
   return [...plan, ...fallbackPlan].slice(0, 3)
+}
+
+interface BuildReasoningGraphInput {
+  cards: ReadingCardView[]
+  input: ReadingInput
+  interpretation: InterpretationMeta
+  positionRuleTags: Record<string, InterpretationRuleTag[]>
+}
+
+const inferPositionRole = (positionLabel: string, prompt: string) => {
+  const source = `${positionLabel} ${prompt}`
+
+  if (/(阻碍|挑战|压力|恐惧)/.test(source)) {
+    return '阻力源'
+  }
+
+  if (/(建议|行动|下一步|指引)/.test(source)) {
+    return '干预入口'
+  }
+
+  if (/(未来|结果|展望|趋势)/.test(source)) {
+    return '轨迹投影'
+  }
+
+  if (/(过去|内因|基础)/.test(source)) {
+    return '根因线索'
+  }
+
+  if (/(现状|当前|核心|主题)/.test(source)) {
+    return '现状锚点'
+  }
+
+  return '语境线索'
+}
+
+const getInteractionReason = (
+  left: ReadingCardView,
+  right: ReadingCardView,
+  relation: 'conflict' | 'harmony',
+) => {
+  const leftLabel =
+    left.card.suit === null ? `${left.card.nameZh}原型` : formatSuitLabel(left.card.suit)
+  const rightLabel =
+    right.card.suit === null ? `${right.card.nameZh}原型` : formatSuitLabel(right.card.suit)
+
+  return relation === 'conflict'
+    ? `${leftLabel}与${rightLabel}在推进节奏上互相牵扯`
+    : `${leftLabel}与${rightLabel}形成同向增幅`
+}
+
+const buildReasoningGraph = ({
+  cards,
+  input,
+  interpretation,
+  positionRuleTags,
+}: BuildReasoningGraphInput): ReasoningGraph => {
+  const nodes: ReasoningGraphNode[] = cards.map((entry) => {
+    const tags = positionRuleTags[entry.drawn.positionKey] ?? []
+    const reversedLens =
+      entry.drawn.orientation === 'down' ? buildReversedLens(entry, tags).label : undefined
+
+    return {
+      positionKey: entry.drawn.positionKey,
+      positionLabel: entry.positionLabel,
+      prompt: entry.prompt,
+      cardId: entry.card.id,
+      cardName: entry.card.nameZh,
+      orientation: entry.drawn.orientation,
+      element: entry.card.suit ?? 'major',
+      role:
+        tags.includes('Conflict') || tags.includes('Sensitive_Query')
+          ? '关键摩擦点'
+          : inferPositionRole(entry.positionLabel, entry.prompt),
+      archetype:
+        entry.card.arcana === 'major'
+          ? `${entry.card.nameZh}原型课题`
+          : `${entry.card.keywords[entry.drawn.orientation][0]} / ${entry.card.keywords[entry.drawn.orientation][1] ?? entry.card.keywords[entry.drawn.orientation][0]}`,
+      orientationModifier:
+        tags.includes('Internalized') || entry.drawn.orientation === 'down'
+          ? 'Internalized'
+          : 'Direct',
+      reversedLens,
+    }
+  })
+
+  const relations: ReasoningGraphRelation[] = []
+  for (let index = 0; index < cards.length - 1; index += 1) {
+    const left = cards[index]
+    const right = cards[index + 1]
+    const relation = getElementInteraction(left.card.suit, right.card.suit)
+
+    if (relation === 'neutral') {
+      continue
+    }
+
+    relations.push({
+      type: relation,
+      from: left.positionLabel,
+      to: right.positionLabel,
+      reason: getInteractionReason(left, right, relation),
+    })
+  }
+
+  const majorCards = cards
+    .filter((entry) => entry.card.arcana === 'major')
+    .map((entry) => `${entry.positionLabel}位${entry.card.nameZh}`)
+  const queryContext = {
+    original: input.question.trim(),
+    reframed: `围绕${TOPIC_BY_ID[input.topic].label}议题，先识别当前轨迹，再找可改变结果的行动杠杆。`,
+    actionFocus: TOPIC_ACTION_FOCUS[input.topic],
+    safetyNote: interpretation.softenedForSafety
+      ? '问题触及高风险语境，系统会避免绝对预测并强调可控行动。'
+      : undefined,
+  }
+  const probableOutcomeNode = nodes[nodes.length - 1]
+  const probableTrajectory =
+    relations.some((entry) => entry.type === 'conflict')
+      ? `若维持当前节奏，${probableOutcomeNode.positionLabel}位呈现的${probableOutcomeNode.cardName}更可能表现为反复拉扯后的迟缓推进。`
+      : `若保持当前节奏，${probableOutcomeNode.positionLabel}位呈现的${probableOutcomeNode.cardName}将沿着既有路径稳步显形。`
+  const interventionPoints = [
+    ...nodes
+      .filter((entry) => entry.role === '干预入口' || entry.role === '阻力源')
+      .map((entry) => `先处理${entry.positionLabel}位对应的${entry.cardName}议题`),
+    interpretation.elementalDynamics.missing.length > 0
+      ? `主动补齐${interpretation.elementalDynamics.missing
+          .map((entry) => formatSuitLabel(entry))
+          .join('、')}维度`
+      : null,
+  ]
+    .filter((entry): entry is string => entry !== null)
+    .slice(0, 4)
+
+  return {
+    queryContext,
+    nodes,
+    relations,
+    dominantElement: interpretation.elementalDynamics.dominant,
+    missingElements: interpretation.elementalDynamics.missing,
+    majorWeight: cards.length === 0 ? 0 : majorCards.length / cards.length,
+    majorAnchors: majorCards,
+    probableTrajectory,
+    interventionPoints,
+    coverageLabels: nodes.map((entry) => entry.positionLabel),
+  }
+}
+
+interface BuildDeepNarrativeInput {
+  input: ReadingInput
+  cards: ReadingCardView[]
+  spread: ResolvedSpreadDefinition
+  interpretation: InterpretationMeta
+  reasoningGraph: ReasoningGraph
+  actionPlan: ActionPlanStep[]
+  summary: string
+}
+
+interface NarrativeValidationResult {
+  passed: boolean
+  coverageScore: number
+}
+
+const ensureSentence = (text: string) => {
+  const value = text.trim()
+  if (!value) {
+    return ''
+  }
+
+  return /[。！？]$/.test(value) ? value : `${value}。`
+}
+
+const resolveNarrativeTargetLength = (cardCount: number) => {
+  if (cardCount <= NARRATIVE_LENGTH_POINTS[0].cards) {
+    return NARRATIVE_LENGTH_POINTS[0].length
+  }
+
+  for (let index = 0; index < NARRATIVE_LENGTH_POINTS.length - 1; index += 1) {
+    const left = NARRATIVE_LENGTH_POINTS[index]
+    const right = NARRATIVE_LENGTH_POINTS[index + 1]
+
+    if (cardCount <= right.cards) {
+      const ratio = (cardCount - left.cards) / (right.cards - left.cards)
+      return Math.round(left.length + (right.length - left.length) * ratio)
+    }
+  }
+
+  const tailLeft = NARRATIVE_LENGTH_POINTS[NARRATIVE_LENGTH_POINTS.length - 2]
+  const tailRight = NARRATIVE_LENGTH_POINTS[NARRATIVE_LENGTH_POINTS.length - 1]
+  const ratio = (cardCount - tailRight.cards) / (tailRight.cards - tailLeft.cards)
+
+  return Math.round(tailRight.length + (tailRight.length - tailLeft.length) * ratio)
+}
+
+const trimNarrativeBySentence = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) {
+    return text
+  }
+
+  const cutIndex = text.lastIndexOf('。', maxLength)
+  if (cutIndex > Math.floor(maxLength * 0.65)) {
+    return text.slice(0, cutIndex + 1)
+  }
+
+  return `${text.slice(0, maxLength - 1)}…`
+}
+
+const chunkSegments = (segments: string[], chunkSize: number) => {
+  if (segments.length === 0) {
+    return []
+  }
+
+  const chunks: string[][] = []
+  for (let index = 0; index < segments.length; index += chunkSize) {
+    chunks.push(segments.slice(index, index + chunkSize))
+  }
+
+  return chunks
+}
+
+const buildNarrativeBaseSegments = ({
+  input,
+  spread,
+  reasoningGraph,
+}: Pick<BuildDeepNarrativeInput, 'input' | 'spread' | 'reasoningGraph'>) => {
+  const majorLine =
+    reasoningGraph.majorWeight >= 0.5
+      ? '大阿尔卡那占比较高，这次更像阶段性的原型迁移，而非短期情绪波动。'
+      : reasoningGraph.majorAnchors.length > 0
+        ? `关键原型位于${reasoningGraph.majorAnchors.join('、')}，它们会放大你在这个阶段的主课题。`
+        : '本次以小阿尔卡那为主，重点在可执行层面的节奏校准。'
+  const elementLine =
+    reasoningGraph.dominantElement === null
+      ? '当前元素分布较分散，说明问题并非单点失衡，而是多维牵动。'
+      : `主导元素落在${formatSuitLabel(reasoningGraph.dominantElement)}，这是本轮解读的主动力学。`
+  const missingLine =
+    reasoningGraph.missingElements.length > 0
+      ? `缺失元素是${reasoningGraph.missingElements
+          .map((entry) => formatSuitLabel(entry))
+          .join('、')}，这部分若不补齐，推进会持续出现“做了很多却不见得有效”的耗散。`
+      : '四元素没有出现明显缺口，重点是让现有资源按优先级排布。'
+
+  return [
+    `你提出的问题是「${input.question.trim()}」。这组${spread.title}${spread.activeVariantTitle ? `·${spread.activeVariantTitle}` : ''}先指向一个核心事实：${reasoningGraph.queryContext.reframed}`,
+    `在方法层面，这次解读遵循“结构化原型 + 关系动力学”的路径：${METHODOLOGY_CORE_MODELS[0]}${METHODOLOGY_CORE_MODELS[1]}${METHODOLOGY_CORE_MODELS[2]}`,
+    majorLine,
+    elementLine,
+    missingLine,
+    reasoningGraph.relations.length > 0
+      ? `牌间关系显示，${reasoningGraph.relations
+          .map((relation) => `${relation.from}到${relation.to}${relation.type === 'conflict' ? '形成冲突' : '形成协同'}（${relation.reason}）`)
+          .join('；')}。`
+      : '牌间关系没有显著冲突，更多表现为层层递进的同向推动。',
+    `综合境遇五要素（不可抗力、业力循环、性格倾向、经验结构、行动杠杆）来看，你当下最可控且最值得放大的，是行动杠杆与经验结构的重新编排。`,
+    reasoningGraph.probableTrajectory,
+    reasoningGraph.queryContext.safetyNote
+      ? `同时需要强调：${reasoningGraph.queryContext.safetyNote}`
+      : null,
+  ].filter((entry): entry is string => entry !== null)
+}
+
+const buildNarrativeExpansionSegments = ({
+  reasoningGraph,
+  actionPlan,
+  interpretation,
+}: Pick<BuildDeepNarrativeInput, 'reasoningGraph' | 'actionPlan' | 'interpretation'>) => {
+  const cardSegments = reasoningGraph.nodes.map((node) => {
+    const orientationLine =
+      node.orientationModifier === 'Direct'
+        ? '以直接能量显形'
+        : '以内化或延迟方式显形'
+    const elementLine =
+      node.element === 'major' ? '原型层触发' : `${formatSuitLabel(node.element)}维度触发`
+    const reversedLensLine =
+      node.orientation === 'down' && node.reversedLens
+        ? ` 此处逆位更接近“${node.reversedLens}”，说明重点不在简单否定，而在重新校准这股力量如何落地。`
+        : ''
+
+    return `在${node.positionLabel}位，${node.cardName}（${node.orientation === 'up' ? '正位' : '逆位'}）以${orientationLine}，它作为${node.role}连接了“${node.prompt}”这一问题入口，并通过${elementLine}把议题落在${node.archetype}。${reversedLensLine}`
+  })
+
+  const actionSegments = actionPlan.map(
+    (step, index) =>
+      `行动建议${index + 1}是「${step.title}」：${step.detail}，这一步的意义不在“立刻见效”，而在把抽象启示转成可验证动作。`,
+  )
+
+  const interpretationSegments = [
+    interpretation.elementalDynamics.conflicts.length > 0
+      ? `冲突信号提示：${interpretation.elementalDynamics.conflicts.join('；')}。若忽略这层冲突，任何单点发力都容易出现反复。`
+      : '当前关系动力学更偏协同，关键不是“要不要做”，而是“先做哪一步最省力”。',
+    interpretation.softenedForSafety
+      ? '因为问题触及敏感边界，建议把这次解读当作结构化反思，不把任何一句话当作替代现实判断的最终命令。'
+      : '这次解读强调成长导向：未来并非固定结局，而是会被你的后续行动持续改写。',
+    `回扣到你的原问题，最有效的推进方式不是扩大焦虑半径，而是缩小行动半径：先在72小时内完成一个可测量动作，再用反馈更新下一轮判断。`,
+  ]
+
+  return [...cardSegments, ...actionSegments, ...interpretationSegments]
+}
+
+const composeNarrativeText = (
+  baseSegments: string[],
+  expansionSegments: string[],
+  targetLength: number,
+) => {
+  const normalizedBase = baseSegments.map(ensureSentence).filter(Boolean)
+  const normalizedExpansion = expansionSegments.map(ensureSentence).filter(Boolean)
+  const minimumLength = Math.round(targetLength * 0.92)
+  const maximumLength = Math.round(targetLength * 1.28)
+  const selectedExpansion: string[] = []
+  const baseText = normalizedBase.join('')
+  let narrativeLength = baseText.length
+  let index = 0
+
+  while (narrativeLength < minimumLength && normalizedExpansion.length > 0) {
+    const segment = normalizedExpansion[index % normalizedExpansion.length]
+    selectedExpansion.push(segment)
+    narrativeLength += segment.length
+    index += 1
+
+    if (index > normalizedExpansion.length * 3) {
+      break
+    }
+  }
+
+  const headParagraphs = [
+    normalizedBase.slice(0, 2).join(''),
+    normalizedBase.slice(2).join(''),
+  ].filter((entry) => entry.trim().length > 0)
+  const expansionParagraphs = chunkSegments(selectedExpansion, 2)
+    .map((chunk) => chunk.join(''))
+    .filter((entry) => entry.trim().length > 0)
+  const narrative = [...headParagraphs, ...expansionParagraphs].join('\n\n')
+
+  return trimNarrativeBySentence(narrative, maximumLength).replace(/\n{3,}/g, '\n\n')
+}
+
+const validateNarrative = ({
+  text,
+  input,
+  reasoningGraph,
+}: {
+  text: string
+  input: ReadingInput
+  reasoningGraph: ReasoningGraph
+}): NarrativeValidationResult => {
+  const questionStem = input.question.trim().slice(0, 8)
+  const hasQuestion = questionStem.length > 0 && text.includes(questionStem)
+  const labelHits = reasoningGraph.coverageLabels.filter((label) => text.includes(label)).length
+  const coverageRatio =
+    reasoningGraph.coverageLabels.length === 0
+      ? 1
+      : labelHits / reasoningGraph.coverageLabels.length
+  const relationNeeded =
+    reasoningGraph.relations.length > 0 || reasoningGraph.missingElements.length > 0
+  const hasRelation = /(冲突|协同|元素|缺失)/.test(text)
+  const hasAction = /(行动|建议|尝试|步骤|推进)/.test(text)
+  const noFatalism = FATALISTIC_TERMS.every((term) => !text.includes(term))
+  const coverageScore = Number(
+    ((hasQuestion ? 0.25 : 0) +
+      Math.min(0.45, coverageRatio * 0.45) +
+      (hasAction ? 0.15 : 0) +
+      ((!relationNeeded || hasRelation) ? 0.15 : 0)).toFixed(2),
+  )
+
+  return {
+    passed:
+      hasQuestion &&
+      coverageRatio >= 0.6 &&
+      hasAction &&
+      (!relationNeeded || hasRelation) &&
+      noFatalism,
+    coverageScore,
+  }
+}
+
+const buildFallbackNarrative = ({
+  input,
+  reasoningGraph,
+  actionPlan,
+}: Pick<BuildDeepNarrativeInput, 'input' | 'reasoningGraph' | 'actionPlan'>) =>
+  [
+    [
+      `围绕「${input.question.trim()}」，牌阵先给出的不是宿命答案，而是当前轨迹的结构图：${reasoningGraph.queryContext.reframed}`,
+      reasoningGraph.relations.length > 0
+        ? `关系层面最关键的是${reasoningGraph.relations
+            .map((item) => `${item.from}与${item.to}${item.type === 'conflict' ? '的冲突' : '的协同'}`)
+            .join('、')}，这解释了你为什么会在推进中感到卡顿或失衡。`
+        : '关系层面暂未出现明显冲突，说明你已经具备连续推进的条件，重点在顺序而不是用力。',
+    ]
+      .filter((entry): entry is string => entry !== null)
+      .map(ensureSentence)
+      .join(''),
+    [
+      `从元素分布看，主导维度是${reasoningGraph.dominantElement ? formatSuitLabel(reasoningGraph.dominantElement) : '多元素并行'}，${reasoningGraph.missingElements.length > 0 ? `缺失维度是${reasoningGraph.missingElements.map((item) => formatSuitLabel(item)).join('、')}，需要主动补齐。` : '整体结构没有明显缺口。'}`,
+      reasoningGraph.probableTrajectory,
+      reasoningGraph.queryContext.safetyNote
+        ? `安全提醒：${reasoningGraph.queryContext.safetyNote}`
+        : null,
+    ]
+      .filter((entry): entry is string => entry !== null)
+      .map(ensureSentence)
+      .join(''),
+    ensureSentence(
+      `你现在可以从三个动作开始：${actionPlan
+        .slice(0, 3)
+        .map((step, index) => `${index + 1}.${step.title}`)
+        .join('，')}。每一步都以小范围验证为原则，再根据现实反馈迭代。`,
+    ),
+  ]
+    .filter((entry) => entry.trim().length > 0)
+    .join('\n\n')
+
+const buildDeepNarrative = ({
+  input,
+  cards,
+  spread,
+  interpretation,
+  reasoningGraph,
+  actionPlan,
+  summary,
+}: BuildDeepNarrativeInput): NarrativeBuildResult => {
+  const targetLength = resolveNarrativeTargetLength(cards.length)
+  const baseSegments = buildNarrativeBaseSegments({
+    input,
+    spread,
+    reasoningGraph,
+  })
+  const expansionSegments = buildNarrativeExpansionSegments({
+    reasoningGraph,
+    actionPlan,
+    interpretation,
+  })
+  let text = composeNarrativeText(baseSegments, expansionSegments, targetLength)
+  let validation = validateNarrative({ text, input, reasoningGraph })
+
+  if (!validation.passed) {
+    const retryBase = [
+      `你问的是「${input.question.trim()}」，解读会围绕问题本身，而不是抽象套话展开。`,
+      ...baseSegments,
+      `回到原问题本身：${summary}`,
+    ]
+    text = composeNarrativeText(retryBase, expansionSegments, targetLength)
+    validation = validateNarrative({ text, input, reasoningGraph })
+  }
+
+  if (!validation.passed) {
+    text = trimNarrativeBySentence(
+      buildFallbackNarrative({ input, reasoningGraph, actionPlan }),
+      Math.round(targetLength * 1.1),
+    )
+    validation = validateNarrative({ text, input, reasoningGraph })
+  }
+
+  return {
+    text,
+    meta: {
+      targetLength,
+      actualLength: text.length,
+      coverageScore: validation.coverageScore,
+      validationPassed: validation.passed,
+    },
+  }
 }
 
 const resolveDepthLevel = (
