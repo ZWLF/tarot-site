@@ -26,6 +26,11 @@ interface RecordCenterProps {
   tagFilter: string
 }
 
+type ReviewSummaryItem = {
+  label: string
+  value: string
+}
+
 const matchesRecord = (record: ReadingRecord, query: string) => {
   const normalizedQuery = query.trim().toLowerCase()
 
@@ -66,6 +71,29 @@ const formatRecordTime = (iso: string) =>
     minute: '2-digit',
   }).format(new Date(iso))
 
+const getRecordSummary = (record: ReadingRecord) =>
+  record.reportSections.coreConclusion.trim() || record.summary
+
+const getReviewSummary = (record: ReadingRecord): ReviewSummaryItem[] => [
+  {
+    label: '当时主线',
+    value: record.reportSections.coreConclusion.trim() || record.summary,
+  },
+  {
+    label: '风险提醒',
+    value:
+      record.reportSections.riskAlert.trim() ||
+      record.reportSections.currentState.trim() ||
+      '先回看当时最明显的阻力和触发点。',
+  },
+  {
+    label: '现在回看',
+    value:
+      record.reportSections.reviewPrompt.trim() ||
+      '现在回看：这次阅读里真正值得继续验证的变化是什么？',
+  },
+]
+
 const RecordCardThumbs = ({ record }: { record: ReadingRecord }) => (
   <div className="record-card__thumbs">
     {record.cards.slice(0, 6).map((card) => {
@@ -84,6 +112,23 @@ const RecordCardThumbs = ({ record }: { record: ReadingRecord }) => (
         </picture>
       ) : null
     })}
+  </div>
+)
+
+const ReviewSummary = ({
+  prefix,
+  record,
+}: {
+  prefix: string
+  record: ReadingRecord
+}) => (
+  <div className="record-card__details">
+    {getReviewSummary(record).map((section) => (
+      <div key={`${prefix}-${section.label}`}>
+        <h4>{section.label}</h4>
+        <p>{section.value}</p>
+      </div>
+    ))}
   </div>
 )
 
@@ -128,7 +173,7 @@ export function RecordCenter({
     .filter((record): record is ReadingRecord => record !== undefined)
 
   return (
-    <section className="panel section" id={sectionId}>
+    <section className="panel section stitch-panel stitch-panel--records" id={sectionId}>
       <div className="section__heading">
         <div>
           <p className="eyebrow">Record Center</p>
@@ -185,7 +230,7 @@ export function RecordCenter({
             onClick={() => onFilterChange('daily')}
           >
             <span>每日一张</span>
-            <small>带复盘记录</small>
+            <small>系统回看摘要</small>
           </button>
         </div>
 
@@ -250,16 +295,16 @@ export function RecordCenter({
                 <span>{record.spreadTitle}</span>
                 <span>{record.tone}</span>
               </div>
-              <p>{record.summary}</p>
-
+              <p>{getRecordSummary(record)}</p>
               <RecordCardThumbs record={record} />
+              <ReviewSummary prefix={`compare-${record.id}`} record={record} />
               <div className="record-card__details">
                 <div>
                   <h4>牌位</h4>
                   <ul className="advice-list">
                     {record.cards.map((card) => (
                       <li key={`${record.id}-${card.positionLabel}-${card.cardId}`}>
-                        {card.positionLabel} 路 {card.cardName} 路{' '}
+                        {card.positionLabel} · {card.cardName} ·{' '}
                         {card.orientation === 'up' ? '正位' : '逆位'}
                       </li>
                     ))}
@@ -270,7 +315,7 @@ export function RecordCenter({
                   <ul className="advice-list">
                     {record.actionPlan.map((step) => (
                       <li key={`${record.id}-${step.id}`}>
-                        {step.done ? '已完成' : '待完成'} 路 {step.title}
+                        {step.done ? '已完成' : '待完成'} · {step.title}
                       </li>
                     ))}
                   </ul>
@@ -304,7 +349,7 @@ export function RecordCenter({
                   {record.saved ? <span>已收藏</span> : null}
                 </div>
 
-                <p>{record.summary}</p>
+                <p>{getRecordSummary(record)}</p>
                 <RecordCardThumbs record={record} />
 
                 {record.tags.length > 0 ? (
@@ -317,6 +362,7 @@ export function RecordCenter({
 
                 <div className="record-card__actions">
                   <button
+                    aria-label={selected ? 'remove from compare' : 'add to compare'}
                     className={`pill ${selected ? 'is-active' : ''}`}
                     disabled={disabled}
                     type="button"
@@ -326,25 +372,16 @@ export function RecordCenter({
                   </button>
                 </div>
 
-                {record.kind === 'daily' ? (
-                  <div className="record-card__details">
-                    <div>
-                      <h4>晨间意图</h4>
-                      <p>{record.dailyReflection.morningIntent || '未填写'}</p>
-                    </div>
-                    <div>
-                      <h4>晚间复盘</h4>
-                      <p>{record.dailyReflection.eveningReview || '未填写'}</p>
-                    </div>
-                  </div>
-                ) : (
+                <ReviewSummary prefix={record.id} record={record} />
+
+                {record.kind === 'reading' ? (
                   <div className="record-card__details">
                     <div>
                       <h4>行动计划</h4>
                       <ul className="advice-list">
                         {record.actionPlan.map((step) => (
                           <li key={`${record.id}-${step.id}`}>
-                            {step.done ? '已完成' : '待完成'} 路 {step.title}
+                            {step.done ? '已完成' : '待完成'} · {step.title}
                           </li>
                         ))}
                       </ul>
@@ -362,7 +399,7 @@ export function RecordCenter({
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </article>
             )
           })

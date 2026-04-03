@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SPREADS } from '../data/spreads'
@@ -31,7 +31,7 @@ describe('ReadingStudioSection', () => {
         selectedSpread={selectedSpread}
         selectedTopic={{
           label: '爱情',
-          framing: '用更真诚的方式看清关系中的张力与选择。',
+          framing: '围绕你真正想确认的关系推进来提问。',
         }}
         selectedVariant={selectedVariant}
         spreadId={selectedSpread.id}
@@ -40,13 +40,12 @@ describe('ReadingStudioSection', () => {
       />,
     )
 
-    await user.click(
-      screen.getByRole('button', {
-        name: '这段关系的下一步走向是什么？',
-      }),
-    )
+    const suggestionList = within(screen.getByTestId('question-suggestions')).getAllByRole('button')
+    const expectedSuggestion = suggestionList[0]?.textContent
 
-    expect(onQuestionChange).toHaveBeenCalledWith('这段关系的下一步走向是什么？')
+    await user.click(suggestionList[0]!)
+
+    expect(onQuestionChange).toHaveBeenCalledWith(expectedSuggestion)
   })
 
   it('does not render the advanced settings controls', () => {
@@ -61,11 +60,11 @@ describe('ReadingStudioSection', () => {
         onSelectSpread={vi.fn()}
         onSelectTopic={vi.fn()}
         onSelectVariant={vi.fn()}
-        question="我接下来该怎样处理这段关系？"
+        question="What changes if I stop forcing this?"
         selectedSpread={selectedSpread}
         selectedTopic={{
           label: '爱情',
-          framing: '用更真诚的方式看清关系中的张力与选择。',
+          framing: '围绕你真正想确认的关系推进来提问。',
         }}
         selectedVariant={selectedVariant}
         spreadId={selectedSpread.id}
@@ -77,5 +76,41 @@ describe('ReadingStudioSection', () => {
     expect(screen.queryByTestId('advanced-settings-panel')).not.toBeInTheDocument()
     expect(screen.queryByTestId('advanced-settings-toggle')).not.toBeInTheDocument()
     expect(screen.queryAllByRole('combobox')).toHaveLength(0)
+  })
+
+  it('renders topic hint and selected spread guide content', () => {
+    render(
+      <ReadingStudioSection
+        canDraw
+        drawNotice={null}
+        isShuffling={false}
+        needsReDrawConfirm={false}
+        onDraw={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSelectSpread={vi.fn()}
+        onSelectTopic={vi.fn()}
+        onSelectVariant={vi.fn()}
+        question="What actually needs to change next?"
+        selectedSpread={selectedSpread}
+        selectedTopic={{
+          label: '决策',
+          framing: '先聚焦你真正能改变的那一部分。',
+          meaningHint: '把问题落在你能负责的动作上，解读会更清楚。',
+        }}
+        selectedVariant={selectedVariant}
+        spreadId={selectedSpread.id}
+        topic="love"
+        variantId={selectedVariant.id}
+      />,
+    )
+
+    expect(screen.getByTestId('studio-guide-panel')).toBeInTheDocument()
+    expect(screen.getByText('把问题落在你能负责的动作上，解读会更清楚。')).toBeInTheDocument()
+    expect(screen.getByText('适合回答什么')).toBeInTheDocument()
+    expect(screen.getByText(selectedVariant.guide.bestFor)).toBeInTheDocument()
+    expect(screen.getByText('什么时候选它')).toBeInTheDocument()
+    expect(screen.getByText(selectedVariant.guide.chooseWhen)).toBeInTheDocument()
+    expect(screen.getByText('什么时候不要用它')).toBeInTheDocument()
+    expect(screen.getByText(selectedVariant.guide.avoidWhen!)).toBeInTheDocument()
   })
 })

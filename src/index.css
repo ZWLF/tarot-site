@@ -1,20 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --font-body:
-    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  --font-body: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
   --font-display:
-    'Baskerville Old Face', 'Times New Roman', 'Songti SC', serif;
-  --font-accent:
-    'Cormorant Garamond', 'Baskerville Old Face', 'Times New Roman', serif;
-  --bg-night: #1c1c1c;
-  --accent-gold: #cda869;
-  --accent-red: #c34537;
-  --text-main: #f6ead0;
-  --text-soft: rgba(246, 234, 208, 0.76);
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  --font-accent: 'Inter', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --surface-lowest: #0e0e0e;
+  --surface-low: #1c1b1b;
+  --surface: #201f1f;
+  --surface-high: #2a2a2a;
+  --surface-highest: #353534;
+  --primary: #eac382;
+  --primary-container: #cda869;
+  --on-primary: #422c00;
+  --text-main: #e5e2e1;
+  --text-soft: #d1c5b5;
+  --outline: #9a8f81;
+  --outline-variant: #4e4639;
+  --bg-night: var(--surface-lowest);
+  --accent-gold: var(--primary-container);
+  --accent-red: #ffb4a9;
   font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
   color: var(--text-main);
-  background: linear-gradient(180deg, #1c1c1c 0%, #1b1b1b 100%);
+  background: radial-gradient(
+      circle at 80% -20%,
+      rgba(234, 195, 130, 0.08),
+      transparent 40%
+    ),
+    linear-gradient(180deg, #131313 0%, #0e0e0e 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -27,7 +44,7 @@
 
 html {
   min-width: 320px;
-  background: #1c1c1c;
+  background: var(--surface-lowest);
   scroll-behavior: smooth;
 }
 
@@ -35,6 +52,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--surface-lowest);
 }
 
 body,

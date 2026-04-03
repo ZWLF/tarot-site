@@ -3,8 +3,21 @@ import { StatusMessage } from '../components/StatusMessage'
 import { RevealText } from '../components/RevealText'
 import { SPREADS } from '../data/spreads'
 import { TOPICS } from '../data/topics'
-import type { ResolvedSpreadDefinition, TopicId } from '../domain/tarot'
+import type { ResolvedSpreadDefinition, SpreadGuide, TopicId } from '../domain/tarot'
 import { getSpreadPreviewPositions } from '../engine/reading'
+
+type StudioTopicSelection = {
+  framing: string
+  label: string
+  meaningHint?: string
+}
+
+type StudioVariantSelection = {
+  description: string
+  guide: SpreadGuide
+  id: string
+  title: string
+}
 
 interface ReadingStudioSectionProps {
   canDraw: boolean
@@ -18,15 +31,8 @@ interface ReadingStudioSectionProps {
   onSelectVariant: (variantId: string) => void
   question: string
   selectedSpread: ResolvedSpreadDefinition | null
-  selectedTopic: {
-    framing: string
-    label: string
-  } | null
-  selectedVariant: {
-    description: string
-    id: string
-    title: string
-  } | null
+  selectedTopic: StudioTopicSelection | null
+  selectedVariant: StudioVariantSelection | null
   spreadId: string | null
   topic: TopicId | null
   variantId?: string
@@ -34,29 +40,29 @@ interface ReadingStudioSectionProps {
 
 const QUESTION_SUGGESTIONS: Record<TopicId, string[]> = {
   general: [
-    '我接下来最该看清的整体趋势是什么？',
-    '当前局面里我最容易忽略的信号是什么？',
-    '未来三个月我需要注意什么能量？',
+    '我接下来最该先处理的主线是什么？',
+    '当前局面里真正影响结果的因素是什么？',
+    '接下来一周我该优先推进哪一步？',
   ],
   love: [
-    '这段关系的下一步走向是什么？',
-    '我该怎样处理这段关系里的不安感？',
-    '眼前这份心动值得继续投入吗？',
+    '这段关系当前最值得看清的核心是什么？',
+    '我该先调整自己的哪一种互动方式？',
+    '如果我要推进这段关系，第一步该怎么做？',
   ],
   career: [
-    '我在当前工作中的核心卡点在哪里？',
-    '我该如何推进这个项目或机会？',
-    '现在适合我主动争取新的职业变化吗？',
+    '我在当前工作里最该先解决的卡点是什么？',
+    '如果我想推进这个项目，第一步该落在哪里？',
+    '现在更适合稳住节奏，还是主动争取变化？',
   ],
   relationships: [
-    '我该怎样调整和这个人的互动边界？',
-    '这段关系里真正需要被说开的是什么？',
-    '我现在最该修复的是哪一层人际张力？',
+    '我和这个人之间最需要先说清的边界是什么？',
+    '这段关系里真正卡住我们的那一层是什么？',
+    '我现在最该先修复哪一种互动方式？',
   ],
   growth: [
-    '我正在重复的内在课题是什么？',
-    '我该如何停止消耗，回到自己的节奏？',
-    '当下最值得培养的内在力量是什么？',
+    '我最近反复卡住的内在课题是什么？',
+    '我该先停掉哪一种持续消耗自己的方式？',
+    '现阶段最值得我先培养的稳定力量是什么？',
   ],
 }
 
@@ -83,16 +89,24 @@ export function ReadingStudioSection({
     : null
   const selectedVariants = selectedSpreadDefinition?.variants ?? []
   const questionSuggestions = QUESTION_SUGGESTIONS[topic ?? 'general']
+  const meaningHint = selectedTopic?.meaningHint?.trim() || null
+  const selectedGuide = selectedVariant?.guide ?? selectedSpread?.guide ?? null
 
   return (
-    <section aria-busy={isShuffling} className="panel section" id="reading">
+    <section
+      aria-busy={isShuffling}
+      className="panel section stitch-panel stitch-panel--studio"
+      id="reading"
+    >
       <div className="section__heading">
         <div>
           <p className="eyebrow">Reading Studio</p>
           <RevealText as="h2" text="问题、主题与牌阵" />
         </div>
         <span className="section__count">
-          {selectedSpread ? `${selectedSpread.cardCount} 张牌` : '先选好问题'}
+          {selectedSpread
+            ? `${selectedSpread.cardCount} 张牌${selectedGuide ? ` · ${selectedGuide.timeCost}` : ''}`
+            : '先选好问题'}
         </span>
       </div>
 
@@ -140,6 +154,40 @@ export function ReadingStudioSection({
         {selectedTopic ? <p className="selection-note">{selectedTopic.framing}</p> : null}
       </div>
 
+      {meaningHint || selectedGuide ? (
+        <article className="result-panel" data-testid="studio-guide-panel">
+          <p className="eyebrow">Selection Guide</p>
+          {meaningHint ? (
+            <div className="result-panel__stack">
+              <h3>提问提醒</h3>
+              <p>{meaningHint}</p>
+            </div>
+          ) : null}
+          {selectedGuide ? (
+            <div className="result-panel__stack">
+              <p className="eyebrow">Spread Guide</p>
+              <h3>{selectedVariant?.title ?? selectedSpread?.title ?? '牌阵说明'}</h3>
+              <div className="record-card__details">
+                <div>
+                  <h4>适合回答什么</h4>
+                  <p>{selectedGuide.bestFor}</p>
+                </div>
+                <div>
+                  <h4>什么时候选它</h4>
+                  <p>{selectedGuide.chooseWhen}</p>
+                </div>
+                {selectedGuide.avoidWhen ? (
+                  <div>
+                    <h4>什么时候不要用它</h4>
+                    <p>{selectedGuide.avoidWhen}</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      ) : null}
+
       <div className="spread-grid">
         {SPREADS.map((spread) => {
           const previewPositions = getSpreadPreviewPositions(
@@ -159,8 +207,8 @@ export function ReadingStudioSection({
               onClick={() => onSelectSpread(spread.id)}
             >
               <div className="spread-card__topline">
-                <span>{spread.cardCount} 张</span>
-                <span>{spread.layoutId}</span>
+                <span>{spread.cardCount} 张牌</span>
+                <span>{spread.guide.timeCost}</span>
               </div>
               <div className="spread-card__body">
                 <div className="spread-card__info">
@@ -207,9 +255,7 @@ export function ReadingStudioSection({
               </button>
             ))}
           </div>
-          {selectedVariant ? (
-            <p className="selection-note">{selectedVariant.description}</p>
-          ) : null}
+          {selectedVariant ? <p className="selection-note">{selectedVariant.description}</p> : null}
         </div>
       ) : null}
 

@@ -2,16 +2,20 @@ import type { LegacySavedReadingRecord, SavedReadingEntry } from '../domain/hist
 import type {
   DailyReflection,
   FollowUpRecord,
+  NarrativeMeta,
+  ReportSections,
   ReadingPreferences,
   ReadingRecord,
   ReadingRecordV2,
+  ReadingRecordV3,
   ReadingResult,
   SavedActionPlanStep,
 } from '../domain/tarot'
 import { TOPIC_BY_ID } from '../data/topics'
 import { buildLocalDateKey } from '../lib/localDate'
 
-const RECORDS_KEY = 'ukiyo-tarot.records-v3'
+const RECORDS_KEY = 'ukiyo-tarot.records-v4'
+const V3_RECORDS_KEY = 'ukiyo-tarot.records-v3'
 const V2_RECORDS_KEY = 'ukiyo-tarot.records-v2'
 const GUIDE_DISMISSED_KEY = 'ukiyo-tarot.guide-dismissed'
 const PREFERENCES_KEY = 'ukiyo-tarot.reading-preferences'
@@ -128,19 +132,187 @@ const toSavedSteps = (
   actionPlan: SavedActionPlanStep[] | undefined,
 ): SavedActionPlanStep[] => actionPlan ?? []
 
-const createDefaultDepthFields = (summary: string, dominantSignals: string[] = []) => ({
-  depthLevel: 'standard' as const,
-  depthSignals: dominantSignals.slice(0, 4),
-  ruleHits: [] as string[],
-  queryFlags: [] as string[],
-  interpretationSummary: summary,
+const createFallbackNarrativeMeta = (text: string): NarrativeMeta => ({
+  targetLength: Math.max(420, text.length),
+  actualLength: text.length,
+  coverageScore: 0.45,
+  validationPassed: false,
 })
+
+const normalizeNarrativeMeta = (
+  value: unknown,
+  fallbackText: string,
+): NarrativeMeta => {
+  if (!value || typeof value !== 'object') {
+    return createFallbackNarrativeMeta(fallbackText)
+  }
+
+  const meta = value as Partial<NarrativeMeta>
+  const targetLength =
+    typeof meta.targetLength === 'number' && Number.isFinite(meta.targetLength)
+      ? Math.max(0, Math.round(meta.targetLength))
+      : Math.max(420, fallbackText.length)
+  const actualLength =
+    typeof meta.actualLength === 'number' && Number.isFinite(meta.actualLength)
+      ? Math.max(0, Math.round(meta.actualLength))
+      : fallbackText.length
+  const coverageScore =
+    typeof meta.coverageScore === 'number' && Number.isFinite(meta.coverageScore)
+      ? Math.min(1, Math.max(0, meta.coverageScore))
+      : 0.45
+
+  return {
+    targetLength,
+    actualLength,
+    coverageScore,
+    validationPassed: meta.validationPassed === true,
+  }
+}
+
+const getLeadingSentences = (text: string, count: number) => {
+  const sentences = text
+    .split('。')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, count)
+
+  if (sentences.length === 0) {
+    return text.trim()
+  }
+
+  return `${sentences.join('。')}。`
+}
+
+const createFallbackReportSections = ({
+  question,
+  spreadTitle,
+  tone,
+  summary,
+  deepNarrative,
+  depthSignals,
+  actionPlan,
+}: {
+  question: string
+  spreadTitle: string
+  tone: string
+  summary: string
+  deepNarrative: string
+  depthSignals: string[]
+  actionPlan: SavedActionPlanStep[]
+}): ReportSections => {
+  const leadStep = actionPlan[0]
+  const narrativeLead = getLeadingSentences(
+    deepNarrative || summary,
+    deepNarrative ? 2 : 1,
+  )
+
+  return {
+    coreConclusion: getLeadingSentences(summary, 2),
+    currentState:
+      depthSignals[0] ??
+      `当前这条线更接近「${tone}」，重点是看清${spreadTitle}里最主要的真实动向。`,
+    riskAlert:
+      depthSignals[1] ??
+      '真正要防的不是没有答案，而是太快把抽象判断当成已经完成的行动。',
+    actionFocus: leadStep
+      ? `先把「${leadStep.title}」落地：${leadStep.detail}`
+      : '先把眼下最小、最确定的一步落实，再根据反馈调整方向。',
+    reviewPrompt: `回看「${question}」时，先问自己：${narrativeLead || '这次判断有没有因为真实行动而变得更清楚？'}`,
+  }
+}
+
+const normalizeReportSections = (
+  value: unknown,
+  fallback: ReportSections,
+): ReportSections => {
+  if (!value || typeof value !== 'object') {
+    return fallback
+  }
+
+  const sections = value as Partial<ReportSections>
+
+  return {
+    coreConclusion: sections.coreConclusion?.trim() || fallback.coreConclusion,
+    currentState: sections.currentState?.trim() || fallback.currentState,
+    riskAlert: sections.riskAlert?.trim() || fallback.riskAlert,
+    actionFocus: sections.actionFocus?.trim() || fallback.actionFocus,
+    reviewPrompt: sections.reviewPrompt?.trim() || fallback.reviewPrompt,
+  }
+}
+
+const createDefaultDepthFields = ({
+  question,
+  spreadTitle,
+  tone,
+  summary,
+  dominantSignals = [],
+  actionPlan = [],
+}: {
+  question: string
+  spreadTitle: string
+  tone: string
+  summary: string
+  dominantSignals?: string[]
+  actionPlan?: SavedActionPlanStep[]
+}) => {
+  const depthSignals = dominantSignals.slice(0, 4)
+
+  return {
+    depthLevel: 'standard' as const,
+    depthSignals,
+    ruleHits: [] as string[],
+    queryFlags: [] as string[],
+    interpretationSummary: summary,
+    deepNarrative: summary,
+    narrativeMeta: createFallbackNarrativeMeta(summary),
+    reportSections: createFallbackReportSections({
+      question,
+      spreadTitle,
+      tone,
+      summary,
+      deepNarrative: summary,
+      depthSignals,
+      actionPlan,
+    }),
+  }
+}
+
+const withNarrativeDefaults = (record: ReadingRecord): ReadingRecord => {
+  const source =
+    typeof (record as Partial<ReadingRecord>).deepNarrative === 'string' &&
+    record.deepNarrative.trim().length > 0
+      ? record.deepNarrative
+      : record.interpretationSummary || record.summary
+  const fallbackReportSections = createFallbackReportSections({
+    question: record.question,
+    spreadTitle: record.spreadTitle,
+    tone: record.tone,
+    summary: record.interpretationSummary || record.summary,
+    deepNarrative: source,
+    depthSignals: record.depthSignals,
+    actionPlan: record.actionPlan,
+  })
+
+  return {
+    ...record,
+    interpretationSummary: record.interpretationSummary || record.summary,
+    deepNarrative: source,
+    narrativeMeta: normalizeNarrativeMeta(
+      (record as Partial<ReadingRecord>).narrativeMeta,
+      source,
+    ),
+    reportSections: normalizeReportSections(
+      (record as Partial<ReadingRecord>).reportSections,
+      fallbackReportSections,
+    ),
+  }
+}
 
 const migrateLegacySavedRecord = (record: LegacySavedReadingRecord): ReadingRecord => {
   const spreadMeta = getLegacySpreadMeta(undefined, record.spreadTitle, record.cards)
 
   return {
-    version: 3,
+    version: 4,
     id: record.id,
     kind: 'reading',
     saved: true,
@@ -171,7 +343,14 @@ const migrateLegacySavedRecord = (record: LegacySavedReadingRecord): ReadingReco
       eveningReview: '',
       resonance: null,
     },
-    ...createDefaultDepthFields(record.summary, record.dominantSignals),
+    ...createDefaultDepthFields({
+      question: record.question,
+      spreadTitle: spreadMeta.spreadTitle,
+      tone: record.tone,
+      summary: record.summary,
+      dominantSignals: record.dominantSignals,
+      actionPlan: toSavedSteps(record.actionPlan),
+    }),
   }
 }
 
@@ -179,7 +358,7 @@ const migrateLegacyHistoryEntry = (entry: SavedReadingEntry): ReadingRecord => {
   const spreadMeta = getLegacySpreadMeta(entry.spreadId, entry.spreadTitle, entry.cards)
 
   return {
-    version: 3,
+    version: 4,
     id: entry.id,
     kind: 'reading',
     saved: false,
@@ -210,14 +389,41 @@ const migrateLegacyHistoryEntry = (entry: SavedReadingEntry): ReadingRecord => {
       eveningReview: '',
       resonance: null,
     },
-    ...createDefaultDepthFields(entry.summary, entry.dominantSignals),
+    ...createDefaultDepthFields({
+      question: entry.question,
+      spreadTitle: spreadMeta.spreadTitle,
+      tone: entry.tone,
+      summary: entry.summary,
+      dominantSignals: entry.dominantSignals,
+    }),
   }
 }
 
 const migrateReadingRecordV2 = (record: ReadingRecordV2): ReadingRecord => ({
   ...record,
-  version: 3,
-  ...createDefaultDepthFields(record.summary, record.dominantSignals),
+  version: 4,
+  ...createDefaultDepthFields({
+    question: record.question,
+    spreadTitle: record.spreadTitle,
+    tone: record.tone,
+    summary: record.summary,
+    dominantSignals: record.dominantSignals,
+    actionPlan: record.actionPlan,
+  }),
+})
+
+const migrateReadingRecordV3 = (record: ReadingRecordV3): ReadingRecord => ({
+  ...record,
+  version: 4,
+  reportSections: createFallbackReportSections({
+    question: record.question,
+    spreadTitle: record.spreadTitle,
+    tone: record.tone,
+    summary: record.interpretationSummary || record.summary,
+    deepNarrative: record.deepNarrative,
+    depthSignals: record.depthSignals,
+    actionPlan: record.actionPlan,
+  }),
 })
 
 const migrateLegacyRecords = () => {
@@ -231,8 +437,12 @@ const migrateLegacyRecords = () => {
 }
 
 export const toReadingRecord = (value: unknown): ReadingRecord | null => {
+  if (isReadingRecordV4(value)) {
+    return withNarrativeDefaults(value as ReadingRecord)
+  }
+
   if (isReadingRecordV3(value)) {
-    return value
+    return withNarrativeDefaults(migrateReadingRecordV3(value as ReadingRecordV3))
   }
 
   if (isReadingRecordV2(value)) {
@@ -245,13 +455,27 @@ export const toReadingRecord = (value: unknown): ReadingRecord | null => {
 export const mergeReadingRecords = (records: ReadingRecord[]) => {
   const map = new Map<string, ReadingRecord>()
 
-  for (const record of records) {
+  for (const rawRecord of records) {
+    const record = withNarrativeDefaults(rawRecord)
     const existing = map.get(record.id)
 
     if (!existing) {
       map.set(record.id, record)
       continue
     }
+
+    const scoreRecord =
+      depthLevelRank(record.depthLevel) +
+      (record.narrativeMeta.validationPassed ? 0.5 : 0) +
+      record.narrativeMeta.coverageScore
+    const scoreExisting =
+      depthLevelRank(existing.depthLevel) +
+      (existing.narrativeMeta.validationPassed ? 0.5 : 0) +
+      existing.narrativeMeta.coverageScore
+    const shouldUseRecordNarrative =
+      scoreRecord > scoreExisting ||
+      (scoreRecord === scoreExisting &&
+        record.deepNarrative.length >= existing.deepNarrative.length)
 
     map.set(record.id, {
       ...existing,
@@ -296,7 +520,21 @@ export const mergeReadingRecords = (records: ReadingRecord[]) => {
           : existing.queryFlags,
       interpretationSummary:
         record.interpretationSummary || existing.interpretationSummary || record.summary,
-      version: 3,
+      deepNarrative: shouldUseRecordNarrative
+        ? record.deepNarrative
+        : existing.deepNarrative,
+      narrativeMeta: shouldUseRecordNarrative
+        ? record.narrativeMeta
+        : existing.narrativeMeta,
+      reportSections:
+        record.reportSections.coreConclusion !== existing.reportSections.coreConclusion ||
+        record.reportSections.currentState !== existing.reportSections.currentState ||
+        record.reportSections.riskAlert !== existing.reportSections.riskAlert ||
+        record.reportSections.actionFocus !== existing.reportSections.actionFocus ||
+        record.reportSections.reviewPrompt !== existing.reportSections.reviewPrompt
+          ? record.reportSections
+          : existing.reportSections,
+      version: 4,
     })
   }
 
@@ -304,19 +542,21 @@ export const mergeReadingRecords = (records: ReadingRecord[]) => {
 }
 
 export const loadReadingRecords = (): ReadingRecord[] => {
-  const storedV3Records = readJson<ReadingRecord[]>(RECORDS_KEY, [])
-  const normalizedV3 = storedV3Records
+  const storedV4Records = readJson<ReadingRecord[]>(RECORDS_KEY, [])
+  const normalizedV4 = storedV4Records
     .map((record) => toReadingRecord(record))
     .filter((record): record is ReadingRecord => record !== null)
 
-  if (normalizedV3.length > 0) {
-    return normalizeReadingRecords(normalizedV3)
+  if (normalizedV4.length > 0) {
+    return normalizeReadingRecords(normalizedV4)
   }
 
+  const storedV3Records = readJson<ReadingRecordV3[]>(V3_RECORDS_KEY, [])
   const storedV2Records = readJson<ReadingRecordV2[]>(V2_RECORDS_KEY, [])
+  const migratedV3 = storedV3Records.map(migrateReadingRecordV3)
   const migratedV2 = storedV2Records.map(migrateReadingRecordV2)
   const migratedLegacy = migrateLegacyRecords()
-  const migrated = mergeReadingRecords([...migratedV2, ...migratedLegacy])
+  const migrated = mergeReadingRecords([...migratedV3, ...migratedV2, ...migratedLegacy])
 
   if (migrated.length > 0) {
     writeJson(RECORDS_KEY, migrated)
@@ -379,7 +619,7 @@ export const buildReadingRecordFromReading = (
   const createdAt = options.createdAt ?? now
 
   return {
-    version: 3,
+    version: 4,
     id: options.recordId ?? buildReadingRecordId(reading),
     kind: 'reading',
     saved: options.saved,
@@ -414,6 +654,9 @@ export const buildReadingRecordFromReading = (
     ruleHits: reading.interpretation.ruleHits,
     queryFlags: reading.interpretation.queryFlags,
     interpretationSummary: reading.summary,
+    deepNarrative: reading.deepNarrative,
+    narrativeMeta: reading.narrativeMeta,
+    reportSections: reading.reportSections,
   }
 }
 
@@ -425,7 +668,7 @@ export const buildDailyRecord = (
   const iso = date.toISOString()
 
   return {
-    version: 3,
+    version: 4,
     id: buildDailyRecordId(date),
     kind: 'daily',
     saved: false,
@@ -463,6 +706,9 @@ export const buildDailyRecord = (
     ruleHits: reading.interpretation.ruleHits,
     queryFlags: reading.interpretation.queryFlags,
     interpretationSummary: reading.summary,
+    deepNarrative: reading.deepNarrative,
+    narrativeMeta: reading.narrativeMeta,
+    reportSections: reading.reportSections,
   }
 }
 
@@ -519,12 +765,12 @@ const isReadingRecordV2 = (value: unknown): value is ReadingRecordV2 => {
   )
 }
 
-const isReadingRecordV3 = (value: unknown): value is ReadingRecord => {
+const isReadingRecordV3 = (value: unknown) => {
   if (!value || typeof value !== 'object') {
     return false
   }
 
-  const record = value as Partial<ReadingRecord>
+  const record = value as Partial<ReadingRecordV3>
 
   return (
     record.version === 3 &&
@@ -544,10 +790,35 @@ const isReadingRecordV3 = (value: unknown): value is ReadingRecord => {
   )
 }
 
+const isReadingRecordV4 = (value: unknown) => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Partial<ReadingRecord>
+
+  return (
+    record.version === 4 &&
+    typeof record.id === 'string' &&
+    (record.kind === 'reading' || record.kind === 'daily') &&
+    typeof record.question === 'string' &&
+    Array.isArray(record.cards) &&
+    Array.isArray(record.tags) &&
+    Array.isArray(record.followUps) &&
+    Array.isArray(record.actionPlan) &&
+    (record.depthLevel === 'shallow' ||
+      record.depthLevel === 'standard' ||
+      record.depthLevel === 'deep') &&
+    Array.isArray(record.depthSignals) &&
+    Array.isArray(record.ruleHits) &&
+    Array.isArray(record.queryFlags)
+  )
+}
+
 export const exportReadingRecordsJson = (records: ReadingRecord[]) =>
   JSON.stringify(
     {
-      version: 2,
+      version: 4,
       exportedAt: new Date().toISOString(),
       recordCount: records.length,
       records: normalizeReadingRecords([...records]),
@@ -559,7 +830,7 @@ export const exportReadingRecordsJson = (records: ReadingRecord[]) =>
 export const parseReadingRecordsJson = (raw: string) => {
   const parsed = JSON.parse(raw) as
     | { records?: unknown }
-    | Array<ReadingRecord | ReadingRecordV2>
+    | Array<ReadingRecord | ReadingRecordV3 | ReadingRecordV2>
     | undefined
 
   const rawRecords = Array.isArray(parsed)

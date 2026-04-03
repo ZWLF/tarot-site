@@ -21,7 +21,7 @@ describe('TarotCardFigure compact mode', () => {
     expect(screen.queryByText('M1')).not.toBeInTheDocument()
   })
 
-  it('does not render the art seal on the front header', () => {
+  it('renders the actual card name in the front header', () => {
     const card = TAROT_DECK.find((entry) => entry.id === 'the-magician')!
     const { container } = render(
       <TarotCardFigure
@@ -33,8 +33,8 @@ describe('TarotCardFigure compact mode', () => {
 
     const headerSpans = container.querySelectorAll('.tarot-card-figure__header span')
 
-    expect(screen.getByText('Major Arcana')).toBeInTheDocument()
     expect(headerSpans).toHaveLength(1)
-    expect(headerSpans.item(0)?.textContent).toBe('Major Arcana')
+    expect(headerSpans.item(0)?.textContent).toBe(card.nameZh)
+    expect(screen.queryByText('Major Arcana')).not.toBeInTheDocument()
   })
 })

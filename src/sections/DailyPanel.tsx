@@ -25,7 +25,7 @@ export function DailyPanel({
   const energyText = entry.card.meaning[entry.drawn.orientation]
 
   return (
-    <section className="panel section daily-panel" id="daily">
+    <section className="panel section daily-panel stitch-panel stitch-panel--daily" id="daily">
       <div className="section__heading">
         <div>
           <p className="eyebrow">Daily Guidance</p>

@@ -112,6 +112,28 @@ describe('tarot reading engine', () => {
     )
   })
 
+  it('enriches every spread and variant with guides and meaning hints', () => {
+    for (const spread of SPREADS) {
+      expect(spread.guide.bestFor.length).toBeGreaterThan(0)
+      expect(spread.guide.chooseWhen.length).toBeGreaterThan(0)
+      expect(spread.guide.timeCost.length).toBeGreaterThan(0)
+
+      for (const position of spread.positions) {
+        expect(position.meaningHint.length).toBeGreaterThan(0)
+      }
+
+      for (const variant of spread.variants ?? []) {
+        expect(variant.guide.bestFor.length).toBeGreaterThan(0)
+        expect(variant.guide.chooseWhen.length).toBeGreaterThan(0)
+        expect(variant.guide.timeCost.length).toBeGreaterThan(0)
+
+        for (const position of variant.positions) {
+          expect(position.meaningHint.length).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+
   it('supports up-only orientation mode', () => {
     const reading = createReading(
       {
@@ -179,6 +201,36 @@ describe('tarot reading engine', () => {
     ).toBe(true)
   })
 
+  it('builds report sections and threads meaning hints into reversed explanations', () => {
+    const reading = createReading(
+      {
+        question: '我该如何调整当前状态？',
+        topic: 'growth',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'reverse-marking' },
+    )
+
+    expect(reading.reportSections.coreConclusion.length).toBeGreaterThan(20)
+    expect(reading.reportSections.currentState.length).toBeGreaterThan(20)
+    expect(reading.reportSections.riskAlert.length).toBeGreaterThan(20)
+    expect(reading.reportSections.actionFocus.length).toBeGreaterThan(20)
+    expect(reading.reportSections.reviewPrompt.length).toBeGreaterThan(12)
+
+    const reversedCard = reading.cards.find((entry) => entry.drawn.orientation === 'down')
+    const reversedReading = reading.positionReadings.find(
+      (entry) =>
+        entry.orientation === 'down' && entry.positionKey === reversedCard?.drawn.positionKey,
+    )
+
+    expect(reversedCard).toBeDefined()
+    expect(reversedReading).toBeDefined()
+    expect(reversedReading?.message).toContain(reversedCard?.meaningHint ?? '')
+    expect(reversedReading?.message).toContain('逆位')
+    expect(reading.reportSections.riskAlert.length).toBeGreaterThan(20)
+  })
+
   it('reweights summary focus by domain topic', () => {
     const loveReading = createReading(
       {
@@ -200,5 +252,89 @@ describe('tarot reading engine', () => {
     expect(loveReading.summary).not.toBe(careerReading.summary)
     expect(loveReading.summary).toContain('沟通质量与边界表达')
     expect(careerReading.summary).toContain('目标与标准')
+  })
+
+  it('scales deep narrative length with card count', () => {
+    const single = createReading(
+      {
+        question: '我接下来最该做的一个动作是什么？',
+        topic: 'general',
+        spreadId: 'single-guidance',
+      },
+      { seed: 'length-single' },
+    )
+    const triangle = createReading(
+      {
+        question: '我接下来最该做的一个动作是什么？',
+        topic: 'general',
+        spreadId: 'holy-triangle',
+      },
+      { seed: 'length-triangle' },
+    )
+    const monthly = createReading(
+      {
+        question: '我接下来最该做的一个动作是什么？',
+        topic: 'general',
+        spreadId: 'monthly-five',
+      },
+      { seed: 'length-monthly' },
+    )
+    const celtic = createReading(
+      {
+        question: '我接下来最该做的一个动作是什么？',
+        topic: 'general',
+        spreadId: 'celtic-cross',
+      },
+      { seed: 'length-celtic' },
+    )
+
+    expect(single.deepNarrative.length).toBeGreaterThanOrEqual(360)
+    expect(triangle.deepNarrative.length).toBeGreaterThan(single.deepNarrative.length)
+    expect(monthly.deepNarrative.length).toBeGreaterThan(triangle.deepNarrative.length)
+    expect(celtic.deepNarrative.length).toBeGreaterThan(monthly.deepNarrative.length)
+    expect(single.narrativeMeta.targetLength).toBe(450)
+    expect(triangle.narrativeMeta.targetLength).toBe(900)
+    expect(monthly.narrativeMeta.targetLength).toBe(1400)
+    expect(celtic.narrativeMeta.targetLength).toBe(2200)
+  })
+
+  it('keeps deep narrative logically grounded in question, positions and dynamics', () => {
+    const reading = createReading(
+      {
+        question: '我为什么会在当前关系里反复拉扯，我该如何推进？',
+        topic: 'love',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'narrative-quality' },
+    )
+
+    expect(reading.deepNarrative).toContain('我为什么会在当前关系里反复拉扯')
+    expect(
+      reading.spread.positions.some((position) =>
+        reading.deepNarrative.includes(position.label),
+      ),
+    ).toBe(true)
+    expect(reading.deepNarrative).toMatch(/(元素|冲突|协同|缺失)/)
+    expect(reading.deepNarrative).toMatch(/(行动|建议|步骤|尝试)/)
+    expect(reading.deepNarrative.split('\n\n').length).toBeGreaterThan(1)
+    expect(reading.narrativeMeta.actualLength).toBe(reading.deepNarrative.length)
+    expect(reading.narrativeMeta.coverageScore).toBeGreaterThan(0.6)
+  })
+
+  it('avoids hard fatalistic wording in deep narrative for sensitive queries', () => {
+    const reading = createReading(
+      {
+        question: '我会不会因为这个病一定出事？',
+        topic: 'general',
+        spreadId: 'holy-triangle',
+      },
+      { seed: 'sensitive-narrative' },
+    )
+
+    expect(reading.interpretation.softenedForSafety).toBe(true)
+    expect(reading.deepNarrative).not.toContain('注定')
+    expect(reading.deepNarrative).not.toContain('毫无疑问')
+    expect(reading.deepNarrative).toContain('高风险')
   })
 })

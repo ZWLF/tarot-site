@@ -16,7 +16,7 @@ describe('reading storage', () => {
     window.localStorage.clear()
   })
 
-  it('migrates legacy saved readings and history into the v3 record store', () => {
+  it('migrates legacy saved readings and history into the v4 record store', () => {
     window.localStorage.setItem(
       'ukiyo-tarot.saved-readings',
       JSON.stringify([
@@ -69,12 +69,18 @@ describe('reading storage', () => {
     const records = loadReadingRecords()
 
     expect(records).toHaveLength(2)
-    expect(records[0].version).toBe(3)
+    expect(records[0].version).toBe(4)
     expect(records.find((entry) => entry.id === 'legacy-saved')?.saved).toBe(true)
     expect(
       records.find((entry) => entry.id === 'legacy-history')?.variantId,
     ).toBe('diagnostic')
-    expect(window.localStorage.getItem('ukiyo-tarot.records-v3')).not.toBeNull()
+    expect(records.every((entry) => entry.deepNarrative.length > 0)).toBe(true)
+    expect(records.every((entry) => entry.reportSections.coreConclusion.length > 0)).toBe(true)
+    expect(records.every((entry) => entry.reportSections.reviewPrompt.length > 0)).toBe(true)
+    expect(
+      records.every((entry) => entry.narrativeMeta.actualLength === entry.deepNarrative.length),
+    ).toBe(true)
+    expect(window.localStorage.getItem('ukiyo-tarot.records-v4')).not.toBeNull()
   })
 
   it('updates the same record when a reading is saved after auto-archive', () => {
@@ -115,8 +121,12 @@ describe('reading storage', () => {
     expect(records[0].title).toBe('项目推进占卜')
     expect(records[0].tags).toEqual(['项目', '决策'])
     expect(records[0].actionPlan[0].done).toBe(true)
+    expect(records[0].version).toBe(4)
     expect(records[0].depthLevel).toBe('deep')
     expect(records[0].ruleHits.length).toBeGreaterThan(0)
+    expect(records[0].deepNarrative).toBe(reading.deepNarrative)
+    expect(records[0].narrativeMeta.targetLength).toBe(reading.narrativeMeta.targetLength)
+    expect(records[0].reportSections).toEqual(reading.reportSections)
   })
 
   it('creates stable daily records for the same date', () => {
@@ -225,6 +235,72 @@ describe('reading storage', () => {
       'first-record',
       'second-record',
     ])
+    expect(parsed.every((entry) => entry.version === 4)).toBe(true)
+    expect(parsed.every((entry) => entry.deepNarrative.length > 0)).toBe(true)
+    expect(parsed.every((entry) => entry.narrativeMeta.actualLength > 0)).toBe(true)
+    expect(parsed.every((entry) => entry.reportSections.actionFocus.length > 0)).toBe(true)
+  })
+
+  it('upgrades imported v3 payloads into v4 records with default report sections', () => {
+    const imported = parseReadingRecordsJson(
+      JSON.stringify({
+        version: 3,
+        records: [
+          {
+            version: 3,
+            id: 'legacy-v3-import',
+            kind: 'reading',
+            saved: true,
+            createdAt: '2026-03-08T08:00:00.000Z',
+            updatedAt: '2026-03-08T08:00:00.000Z',
+            title: '旧版导入',
+            question: '这次关系里我最该先处理什么？',
+            topicId: 'love',
+            topicLabel: '爱情',
+            spreadId: 'holy-triangle',
+            spreadTitle: '圣三角',
+            variantId: 'diagnostic',
+            variantTitle: '现状 / 阻碍 / 建议',
+            tone: '先稳住节奏',
+            summary: '先把真正的阻力说清楚，再决定是否继续推进。',
+            dominantSignals: ['关系', '沟通'],
+            tags: ['导入'],
+            cards: [
+              {
+                positionLabel: '现状',
+                cardId: 'the-fool',
+                cardName: '愚人',
+                orientation: 'up',
+              },
+            ],
+            actionPlan: [],
+            followUps: [],
+            dailyReflection: {
+              morningIntent: '',
+              eveningReview: '',
+              resonance: null,
+            },
+            depthLevel: 'standard',
+            depthSignals: ['旧版导入'],
+            ruleHits: [],
+            queryFlags: [],
+            interpretationSummary: '先把真正的阻力说清楚，再决定是否继续推进。',
+            deepNarrative: '先把真正的阻力说清楚，再决定是否继续推进。',
+            narrativeMeta: {
+              targetLength: 420,
+              actualLength: 20,
+              coverageScore: 0.45,
+              validationPassed: false,
+            },
+          },
+        ],
+      }),
+    )
+
+    expect(imported).toHaveLength(1)
+    expect(imported[0].version).toBe(4)
+    expect(imported[0].reportSections.coreConclusion).toContain('阻力')
+    expect(imported[0].reportSections.reviewPrompt.length).toBeGreaterThan(0)
   })
 })
 

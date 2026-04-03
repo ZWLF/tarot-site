@@ -17,16 +17,17 @@ const spread: ResolvedSpreadDefinition = {
   id: spreadDefinition.id,
   title: spreadDefinition.title,
   description: spreadDefinition.description,
+  guide: spreadVariant.guide,
   cardCount: spreadDefinition.cardCount,
   layoutId: spreadDefinition.layoutId,
-  positions: spreadVariant?.positions ?? spreadDefinition.positions,
-  activeVariantId: spreadVariant?.id,
-  activeVariantTitle: spreadVariant?.title,
+  positions: spreadVariant.positions,
+  activeVariantId: spreadVariant.id,
+  activeVariantTitle: spreadVariant.title,
 }
 
 const reading: ReadingResult = {
   input: {
-    question: '我接下来该怎样处理这段关系？',
+    question: 'How should I move this relationship forward?',
     topic: 'love',
     spreadId: spread.id,
     variantId: spread.activeVariantId,
@@ -44,6 +45,7 @@ const reading: ReadingResult = {
         positionKey: position.key,
       },
       positionLabel: position.label,
+      meaningHint: position.meaningHint,
       prompt: position.prompt,
     }
   }),
@@ -54,39 +56,54 @@ const reading: ReadingResult = {
     cardId: TAROT_DECK[index]!.id,
     cardName: TAROT_DECK[index]!.nameZh,
     orientation: index === 1 ? 'down' : 'up',
-    message: `解读-${position.key}`,
-    keywords: ['清晰', '关系'],
+    message: `Reading ${position.key}`,
+    keywords: ['clarity', 'relationship'],
   })),
-  summary: '把关系里的真实张力说清楚，接下来才有推进空间。',
-  advice: ['先说清楚当前的不安来源。', '把边界和期待同时摆到台面上。'],
+  summary: 'The spread says pacing matters more than intensity right now.',
+  deepNarrative:
+    'The cards point to timing, boundaries, and a need to separate real progress from anxious overreach.',
+  narrativeMeta: {
+    targetLength: 900,
+    actualLength: 362,
+    coverageScore: 0.86,
+    validationPassed: true,
+  },
+  advice: ['Name the real bottleneck.', 'Make the next ask concrete and measurable.'],
   actionPlan: [
-    { id: 'step-1', title: '澄清', detail: '先确认你最在意的关系需求。' },
-    { id: 'step-2', title: '表达', detail: '安排一次不被打断的沟通。' },
+    { id: 'step-1', title: 'Clarify the pressure', detail: 'Write what feels blocked right now.' },
+    { id: 'step-2', title: 'Make one explicit ask', detail: 'Turn the next move into one sentence.' },
   ],
-  tone: '关系进入重新校准期',
-  dominantSignals: ['关系', '沟通', '边界'],
+  tone: 'Recalibrate before you push.',
+  dominantSignals: ['relationship', 'timing', 'boundaries'],
   depthLevel: 'deep',
   interpretation: {
-    depthSignals: ['牌阵存在元素冲突', '主导元素：风（宝剑）'],
+    depthSignals: ['Elemental tension is concentrated around swords.'],
     ruleHits: ['R_ELM_01', 'R_REV_01'],
     queryFlags: [],
     softenedForSafety: false,
     elementalDynamics: {
       dominant: 'swords',
       missing: ['wands', 'pentacles'],
-      conflicts: ['现状与阻碍存在元素冲突'],
+      conflicts: ['Context and resistance point in different directions.'],
       harmonies: [],
     },
+  },
+  reportSections: {
+    coreConclusion: '核心结论是先重新校准节奏，再决定要不要继续推进。',
+    currentState: '当前状态显示真正的压力来自边界不清，而不是感情本身不存在。',
+    riskAlert: '风险提醒是不要把焦虑感误当成必须立刻表态的信号。',
+    actionFocus: '先做什么：先用一句明确的话把你的边界和期待说清楚。',
+    reviewPrompt: '回看问题：如果一周后再看，你是否先做了说清边界这一步？',
   },
 }
 
 describe('ReadingResultSection', () => {
   it('keeps follow-up exploration collapsed by default and exposes icon-only secondary actions', () => {
-    render(
+    const { container } = render(
       <ReadingResultSection
         actionPlanDoneIds={[]}
         followUpQuestion=""
-        followUpSuggestions={['如果我主动推进一次，会发生什么？']}
+        followUpSuggestions={['What changes if I move first?']}
         followUps={[]}
         onDownloadPoster={vi.fn()}
         onFollowUpQuestionChange={vi.fn()}
@@ -107,15 +124,8 @@ describe('ReadingResultSection', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: '全部揭晓' })).toHaveClass(
-      'result-actions__primary',
-    )
-    expect(screen.getByRole('button', { name: '分享文案' })).toHaveClass(
-      'ghost-button--icon-only',
-    )
-    expect(screen.getByRole('button', { name: '下载海报' })).toHaveClass(
-      'ghost-button--icon-only',
-    )
+    expect(container.querySelector('.result-actions__primary')).toBeInTheDocument()
+    expect(container.querySelectorAll('.ghost-button--icon-only')).toHaveLength(2)
     expect(screen.getByTestId('follow-up-accordion')).not.toHaveAttribute('open')
     expect(screen.getByTestId('deep-signals-panel')).toBeInTheDocument()
   })
@@ -123,8 +133,7 @@ describe('ReadingResultSection', () => {
   it('keeps the archive inputs writable through the existing handlers', () => {
     const onRecordTitleChange = vi.fn()
     const onRecordTagsChange = vi.fn()
-
-    render(
+    const { container } = render(
       <ReadingResultSection
         actionPlanDoneIds={[]}
         followUpQuestion=""
@@ -149,14 +158,55 @@ describe('ReadingResultSection', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('记录标题'), {
-      target: { value: '关系推进判断' },
+    const inputs = container.querySelectorAll<HTMLInputElement>('input[type="text"]')
+
+    fireEvent.change(inputs[0]!, {
+      target: { value: 'Relationship recalibration' },
     })
-    fireEvent.change(screen.getByLabelText('记录标签'), {
-      target: { value: '关系 决策' },
+    fireEvent.change(inputs[1]!, {
+      target: { value: 'relationship pacing' },
     })
 
-    expect(onRecordTitleChange).toHaveBeenCalledWith('关系推进判断')
-    expect(onRecordTagsChange).toHaveBeenCalledWith('关系 决策')
+    expect(onRecordTitleChange).toHaveBeenCalledWith('Relationship recalibration')
+    expect(onRecordTagsChange).toHaveBeenCalledWith('relationship pacing')
+  })
+
+  it('renders the fixed five-part report structure when present', () => {
+    render(
+      <ReadingResultSection
+        actionPlanDoneIds={[]}
+        followUpQuestion=""
+        followUpSuggestions={[]}
+        followUps={[]}
+        onDownloadPoster={vi.fn()}
+        onFollowUpQuestionChange={vi.fn()}
+        onRecordTagsChange={vi.fn()}
+        onRecordTitleChange={vi.fn()}
+        onReveal={vi.fn()}
+        onRevealAll={vi.fn()}
+        onSaveReading={vi.fn()}
+        onShareReading={vi.fn()}
+        onSubmitFollowUp={vi.fn()}
+        onToggleActionPlan={vi.fn()}
+        reading={reading}
+        recordNotice={null}
+        recordTagsInput=""
+        recordTitle=""
+        revealedPositions={reading.cards.map((entry) => entry.drawn.positionKey)}
+        shareMessage={null}
+      />,
+    )
+
+    expect(screen.getByText('核心结论')).toBeInTheDocument()
+    expect(screen.getByText(reading.reportSections.coreConclusion)).toBeInTheDocument()
+    expect(screen.getByText('当前状态')).toBeInTheDocument()
+    expect(screen.getByText(reading.reportSections.currentState)).toBeInTheDocument()
+    expect(screen.getByText('风险提醒')).toBeInTheDocument()
+    expect(screen.getByText(reading.reportSections.riskAlert)).toBeInTheDocument()
+    expect(screen.getByText('先做什么')).toBeInTheDocument()
+    expect(screen.getByText(reading.reportSections.actionFocus)).toBeInTheDocument()
+    expect(screen.getByText('回看问题')).toBeInTheDocument()
+    expect(screen.getByText(reading.reportSections.reviewPrompt)).toBeInTheDocument()
+    expect(screen.getByText('完整解读')).toBeInTheDocument()
   })
 })

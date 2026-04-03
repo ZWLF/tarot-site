@@ -8,21 +8,21 @@ const createRecord = (
   id: string,
   overrides: Partial<ReadingRecord> = {},
 ): ReadingRecord => ({
-  version: 3,
+  version: 4,
   id,
   kind: 'reading',
   saved: false,
   createdAt: '2026-03-01T00:00:00.000Z',
   updatedAt: '2026-03-01T00:00:00.000Z',
-  title: `记录-${id}`,
-  question: `问题-${id}`,
+  title: `Record ${id}`,
+  question: `Question ${id}`,
   topicId: 'general',
-  topicLabel: '通用',
+  topicLabel: 'General',
   spreadId: 'holy-triangle',
-  spreadTitle: '圣三角',
-  tone: '稳步推进',
-  summary: `总结-${id}`,
-  dominantSignals: ['主题：通用'],
+  spreadTitle: 'Holy Triangle',
+  tone: 'Steady forward motion',
+  summary: `Summary ${id}`,
+  dominantSignals: ['general'],
   tags: [],
   cards: [],
   actionPlan: [],
@@ -36,7 +36,21 @@ const createRecord = (
   depthSignals: [],
   ruleHits: [],
   queryFlags: [],
-  interpretationSummary: `总结-${id}`,
+  interpretationSummary: `Summary ${id}`,
+  deepNarrative: `Long form ${id}`,
+  narrativeMeta: {
+    targetLength: 900,
+    actualLength: 320,
+    coverageScore: 0.7,
+    validationPassed: true,
+  },
+  reportSections: {
+    coreConclusion: `这次阅读的主线 ${id}`,
+    currentState: `当前状态 ${id}`,
+    riskAlert: `风险提醒 ${id}`,
+    actionFocus: `行动焦点 ${id}`,
+    reviewPrompt: `现在回看 ${id}`,
+  },
   ...overrides,
 })
 
@@ -46,13 +60,13 @@ describe('RecordCenter filters and compare', () => {
     const onToggleCompare = vi.fn()
 
     const records = [
-      createRecord('recent-love', {
+      createRecord('recent', {
         updatedAt: new Date().toISOString(),
-        tags: ['关系'],
+        tags: ['focus'],
       }),
-      createRecord('old-career', {
+      createRecord('old', {
         updatedAt: '2024-01-01T00:00:00.000Z',
-        tags: ['事业'],
+        tags: ['archive'],
       }),
     ]
 
@@ -74,14 +88,58 @@ describe('RecordCenter filters and compare', () => {
         recordsMessage={null}
         storageBackend="indexeddb"
         storageReady
-        tagFilter="关系"
+        tagFilter="focus"
       />,
     )
 
-    expect(screen.getByText('记录-recent-love')).toBeInTheDocument()
-    expect(screen.queryByText('记录-old-career')).not.toBeInTheDocument()
+    expect(screen.getByText('Record recent')).toBeInTheDocument()
+    expect(screen.queryByText('Record old')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '加入对比' }))
-    expect(onToggleCompare).toHaveBeenCalledWith('recent-love')
+    await user.click(screen.getByRole('button', { name: /compare/i }))
+    expect(onToggleCompare).toHaveBeenCalledWith('recent')
+  })
+
+  it('renders review summaries for list and compare views', () => {
+    const records = [
+      createRecord('structured', {
+        summary: 'legacy summary',
+        reportSections: {
+          coreConclusion: '这次阅读的主线是先稳住推进节奏。',
+          currentState: '当前状态是关系里节奏感失衡。',
+          riskAlert: '风险提醒是不要把焦虑误当行动。',
+          actionFocus: '行动焦点是先说清边界。',
+          reviewPrompt: '现在回看：这次你有没有先稳住节奏再行动？',
+        },
+      }),
+    ]
+
+    render(
+      <RecordCenter
+        compareSelection={['structured']}
+        dateFilter="all"
+        filter="all"
+        onClearCompare={vi.fn()}
+        onDateFilterChange={vi.fn()}
+        onExportRecords={vi.fn()}
+        onFilterChange={vi.fn()}
+        onImportRecords={vi.fn()}
+        onQueryChange={vi.fn()}
+        onTagFilterChange={vi.fn()}
+        onToggleCompare={vi.fn()}
+        query=""
+        records={records}
+        recordsMessage={null}
+        storageBackend="indexeddb"
+        storageReady
+        tagFilter=""
+      />,
+    )
+
+    expect(screen.getAllByText('当时主线').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('这次阅读的主线是先稳住推进节奏。').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('风险提醒').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('风险提醒是不要把焦虑误当行动。').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('现在回看').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('现在回看：这次你有没有先稳住节奏再行动？').length).toBeGreaterThan(0)
   })
 })
