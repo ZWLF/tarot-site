@@ -1804,6 +1804,7 @@
 .record-grid {
   display: grid;
   gap: 16px;
+  align-items: stretch;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
@@ -1843,8 +1844,10 @@
   position: relative;
   z-index: 1;
   display: grid;
+  align-content: start;
   gap: 14px;
   padding: 16px 0;
+  min-height: var(--record-card-min-height, auto);
   border: 0;
   border-bottom: 1px solid rgba(205, 168, 105, 0.2);
   border-radius: 0;
@@ -1886,6 +1889,22 @@
 .record-card__details {
   display: grid;
   gap: 12px;
+}
+
+.record-card__analysis {
+  display: grid;
+  gap: 12px;
+  min-height: var(--record-analysis-min-height, auto);
+}
+
+.record-card__summary {
+  margin: 0;
+  min-height: var(--record-summary-min-height, auto);
+}
+
+.record-card__review-value {
+  margin: 0;
+  min-height: var(--record-review-min-height, auto);
 }
 
 .record-card__actions {

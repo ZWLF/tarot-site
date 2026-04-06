@@ -142,4 +142,51 @@ describe('RecordCenter filters and compare', () => {
     expect(screen.getAllByText('现在回看').length).toBeGreaterThan(0)
     expect(screen.getAllByText('现在回看：这次你有没有先稳住节奏再行动？').length).toBeGreaterThan(0)
   })
+
+  it('truncates oversized preview content with ellipsis for stable cards', () => {
+    const longText =
+      '这是一段非常长的复盘文本，用来验证记录中心在内容很长的时候会做稳定的预览裁切，而不是无限拉高卡片。'.repeat(
+        4,
+      )
+    const records = [
+      createRecord('long-preview', {
+        summary: longText,
+        reportSections: {
+          coreConclusion: longText,
+          currentState: longText,
+          riskAlert: longText,
+          actionFocus: longText,
+          reviewPrompt: longText,
+        },
+      }),
+    ]
+
+    const { container } = render(
+      <RecordCenter
+        compareSelection={[]}
+        dateFilter="all"
+        filter="all"
+        onClearCompare={vi.fn()}
+        onDateFilterChange={vi.fn()}
+        onExportRecords={vi.fn()}
+        onFilterChange={vi.fn()}
+        onImportRecords={vi.fn()}
+        onQueryChange={vi.fn()}
+        onTagFilterChange={vi.fn()}
+        onToggleCompare={vi.fn()}
+        query=""
+        records={records}
+        recordsMessage={null}
+        storageBackend="indexeddb"
+        storageReady
+        tagFilter=""
+      />,
+    )
+
+    const summary = container.querySelector('.record-card__summary')
+    const reviewValues = Array.from(container.querySelectorAll('.record-card__review-value'))
+
+    expect(summary?.textContent?.includes('…')).toBe(true)
+    expect(reviewValues.some((node) => node.textContent?.includes('…'))).toBe(true)
+  })
 })
