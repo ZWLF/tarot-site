@@ -1,4 +1,5 @@
 import type { Orientation, ReadingRecord, ReadingResult } from '../domain/tarot'
+import { layoutParagraphLines } from './textLayout'
 
 interface PosterCard {
   label: string
@@ -20,6 +21,14 @@ const SVG_FONT_TOKEN_CSS = `
     --font-accent: 'Cormorant Garamond', 'Baskerville Old Face', 'Times New Roman', serif;
   }
 `
+const POSTER_TEXT_FONT = `400 18px "Baskerville Old Face", "Times New Roman", "Songti SC", serif`
+const POSTER_SUMMARY_FONT = `400 22px "Baskerville Old Face", "Times New Roman", "Songti SC", serif`
+const POSTER_QUESTION_MAX_WIDTH = 652
+const POSTER_SUMMARY_MAX_WIDTH = 652
+const POSTER_QUESTION_LINE_HEIGHT = 28
+const POSTER_SUMMARY_LINE_HEIGHT = 38
+const POSTER_QUESTION_MAX_LINES = 2
+const POSTER_SUMMARY_MAX_LINES = 4
 
 const escapeXml = (value: string) =>
   value
@@ -28,6 +37,30 @@ const escapeXml = (value: string) =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;')
+
+const renderPosterParagraph = ({
+  fill,
+  fontFamily,
+  fontSize,
+  lineHeight,
+  lines,
+  x,
+  y,
+}: {
+  fill: string
+  fontFamily: string
+  fontSize: number
+  lineHeight: number
+  lines: string[]
+  x: number
+  y: number
+}) =>
+  lines
+    .map(
+      (line, index) =>
+        `<text x="${x}" y="${y + index * lineHeight}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}">${escapeXml(line)}</text>`,
+    )
+    .join('')
 
 export const buildReadingShareText = (
   reading: ReadingResult,
@@ -84,6 +117,20 @@ export const buildRecordShareText = (record: ReadingRecord): string => {
 }
 
 export const buildReadingPosterSvg = (payload: PosterPayload) => {
+  const questionLayout = layoutParagraphLines({
+    font: POSTER_TEXT_FONT,
+    lineHeight: POSTER_QUESTION_LINE_HEIGHT,
+    maxLines: POSTER_QUESTION_MAX_LINES,
+    maxWidth: POSTER_QUESTION_MAX_WIDTH,
+    text: payload.question,
+  })
+  const summaryLayout = layoutParagraphLines({
+    font: POSTER_SUMMARY_FONT,
+    lineHeight: POSTER_SUMMARY_LINE_HEIGHT,
+    maxLines: POSTER_SUMMARY_MAX_LINES,
+    maxWidth: POSTER_SUMMARY_MAX_WIDTH,
+    text: payload.summary,
+  })
   const cardRows = payload.cards
     .slice(0, 10)
     .map((card, index) => {
@@ -122,14 +169,26 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
     <text x="54" y="84" fill="#e4c98a" font-size="20" font-family="var(--font-accent)" letter-spacing="4">UKIYO TAROT SALON</text>
     <text x="54" y="144" fill="#f7f0de" font-size="42" font-family="var(--font-display)">${escapeXml(payload.title)}</text>
     <text x="54" y="190" fill="#cad5e5" font-size="18" font-family="var(--font-display)">${escapeXml(payload.spreadTitle)}</text>
-    <foreignObject x="54" y="212" width="652" height="54">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:18px;color:#dfe8f8;line-height:1.55;">${escapeXml(payload.question)}</div>
-    </foreignObject>
+    ${renderPosterParagraph({
+      fill: '#dfe8f8',
+      fontFamily: 'var(--font-display)',
+      fontSize: 18,
+      lineHeight: POSTER_QUESTION_LINE_HEIGHT,
+      lines: questionLayout.lines,
+      x: 54,
+      y: 236,
+    })}
     ${cardRows}
     <text x="54" y="734" fill="#e4c98a" font-size="18" font-family="var(--font-accent)" letter-spacing="3">SUMMARY</text>
-    <foreignObject x="54" y="750" width="652" height="154">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:22px;color:#f8f2e5;line-height:1.7;">${escapeXml(payload.summary)}</div>
-    </foreignObject>
+    ${renderPosterParagraph({
+      fill: '#f8f2e5',
+      fontFamily: 'var(--font-display)',
+      fontSize: 22,
+      lineHeight: POSTER_SUMMARY_LINE_HEIGHT,
+      lines: summaryLayout.lines,
+      x: 54,
+      y: 782,
+    })}
     <text x="54" y="932" fill="#bfc9d9" font-size="16" font-family="var(--font-display)">浮世塔罗 · 以牌为镜，以行动落地</text>
   </svg>`
 }

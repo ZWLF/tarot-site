@@ -17,9 +17,22 @@ export function SpreadLayoutBoard({
   onReveal,
 }: SpreadLayoutBoardProps) {
   const boardMeta = useMemo(() => getBoardMetaForSpread(spread), [spread])
+  const captionContentByKey = useMemo(
+    () =>
+      Object.fromEntries(
+        cards.map((entry) => [
+          entry.drawn.positionKey,
+          {
+            body: entry.meaningHint,
+            title: entry.positionLabel,
+          },
+        ]),
+      ),
+    [cards],
+  )
   const stageLayout = useMemo(
-    () => buildSpreadStageLayout(boardMeta, revealedPositions),
-    [boardMeta, revealedPositions],
+    () => buildSpreadStageLayout(boardMeta, revealedPositions, captionContentByKey),
+    [boardMeta, revealedPositions, captionContentByKey],
   )
   const cardMap = useMemo(
     () => Object.fromEntries(stageLayout.cards.map((entry) => [entry.key, entry])),
