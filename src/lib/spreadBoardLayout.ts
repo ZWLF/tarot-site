@@ -1,4 +1,5 @@
 import type { ResolvedSpreadDefinition } from '../domain/tarot'
+import { measureNaturalTextWidth, measureParagraph } from './textLayout'
 
 export interface LayoutCoordinate {
   key: string
@@ -41,6 +42,11 @@ export interface BoardCaptionLayout {
   connectorLength: number
 }
 
+export interface CaptionContent {
+  body: string
+  title: string
+}
+
 export interface SpreadStageLayout {
   stageWidth: number
   stageHeight: number
@@ -57,6 +63,14 @@ const CARD_ASPECT_RATIO = 1.6
 const CAPTION_GAP_X = 18
 const CAPTION_GAP_Y = 14
 const CAPTION_OFFSET = 24
+const CAPTION_PADDING_X = 14 * 2
+const CAPTION_PADDING_Y = 12 * 2
+const CAPTION_BODY_MAX_LINES = 3
+const CAPTION_TITLE_FONT = '700 16px Inter, "PingFang SC", "Noto Sans SC", sans-serif'
+const CAPTION_BODY_FONT = '400 15px Inter, "PingFang SC", "Noto Sans SC", sans-serif'
+const CAPTION_TITLE_LINE_HEIGHT = 20
+const CAPTION_BODY_LINE_HEIGHT = 23
+const CAPTION_BODY_GAP = 6
 
 const clampValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -103,6 +117,77 @@ const getCardBaseWidth = (boardWidth: number) => clampValue(boardWidth * 0.17, 1
 const getCaptionWidth = (boardWidth: number) => clampValue(boardWidth * 0.24, 220, 312)
 
 const getCaptionHeight = (boardWidth: number) => clampValue(boardWidth * 0.068, 88, 110)
+
+const getCaptionSize = (
+  boardWidth: number,
+  revealedCards: BoardCardLayout[],
+  captionContentByKey: Record<string, CaptionContent> = {},
+) => {
+  if (revealedCards.length === 0) {
+    return {
+      height: getCaptionHeight(boardWidth),
+      width: getCaptionWidth(boardWidth),
+    }
+  }
+
+  const fallbackWidth = getCaptionWidth(boardWidth)
+  const minWidth = 220
+  const maxWidth = clampValue(boardWidth * 0.34, 280, 360)
+  const naturalTargetWidth = revealedCards.reduce((maxWidthFromText, card) => {
+    const content = captionContentByKey[card.key]
+    if (!content) {
+      return maxWidthFromText
+    }
+
+    const titleWidth = measureNaturalTextWidth({
+      font: CAPTION_TITLE_FONT,
+      text: content.title,
+    }).width
+    const bodyWidth = measureNaturalTextWidth({
+      font: CAPTION_BODY_FONT,
+      text: content.body,
+    }).width
+
+    return Math.max(maxWidthFromText, Math.max(titleWidth, bodyWidth * 0.92))
+  }, 0)
+
+  const width = clampValue(
+    Math.max(fallbackWidth * 0.9, naturalTargetWidth + CAPTION_PADDING_X),
+    minWidth,
+    maxWidth,
+  )
+  const bodyWidth = Math.max(1, width - CAPTION_PADDING_X)
+  const minHeight = getCaptionHeight(boardWidth)
+  const dynamicHeight = revealedCards.reduce((maxHeight, card) => {
+    const content = captionContentByKey[card.key]
+    if (!content) {
+      return maxHeight
+    }
+
+    const titleMetrics = measureParagraph({
+      font: CAPTION_TITLE_FONT,
+      lineHeight: CAPTION_TITLE_LINE_HEIGHT,
+      maxLines: 1,
+      maxWidth: bodyWidth,
+      text: content.title,
+    })
+    const bodyMetrics = measureParagraph({
+      font: CAPTION_BODY_FONT,
+      lineHeight: CAPTION_BODY_LINE_HEIGHT,
+      maxLines: CAPTION_BODY_MAX_LINES,
+      maxWidth: bodyWidth,
+      text: content.body,
+    })
+    const nextHeight =
+      CAPTION_PADDING_Y + titleMetrics.height + CAPTION_BODY_GAP + bodyMetrics.height
+    return Math.max(maxHeight, nextHeight)
+  }, minHeight)
+
+  return {
+    height: clampValue(Math.round(dynamicHeight), minHeight, 156),
+    width: Math.round(width),
+  }
+}
 
 const isIntentionalOverlapPair = (left: LayoutCoordinate, right: LayoutCoordinate) => {
   const sameAnchor = Math.abs(left.x - right.x) < 0.01 && Math.abs(left.y - right.y) < 0.01
@@ -530,23 +615,16 @@ export const getBoardMetaForSpread = (
 export const buildSpreadStageLayout = (
   boardMeta: BoardMeta,
   revealedKeys: string[],
+  captionContentByKey: Record<string, CaptionContent> = {},
 ): SpreadStageLayout => {
   const optimized = optimizeCardCoordinates(boardMeta.coordinates, boardMeta.width, boardMeta.height)
   const cardWidth = getCardBaseWidth(boardMeta.width) * optimized.cardScale
   const cardHeight = cardWidth * CARD_ASPECT_RATIO
-  const captionWidth = getCaptionWidth(boardMeta.width)
-  const captionHeight = getCaptionHeight(boardMeta.width)
 
-  const horizontalGutter = captionWidth + CAPTION_OFFSET * 2
-  const verticalGutter = captionHeight + CAPTION_OFFSET * 2
+  const horizontalGutter = getCaptionWidth(boardMeta.width) + CAPTION_OFFSET * 2
+  const verticalGutter = getCaptionHeight(boardMeta.width) + CAPTION_OFFSET * 2
   const boardLeft = horizontalGutter
   const boardTop = verticalGutter
-  const boardRect = {
-    left: boardLeft,
-    right: boardLeft + boardMeta.width,
-    top: boardTop,
-    bottom: boardTop + boardMeta.height,
-  }
 
   const cards = optimized.coordinates.map((coordinate) => {
     const centerX = boardLeft + (boardMeta.width * coordinate.x) / 100
@@ -564,6 +642,17 @@ export const buildSpreadStageLayout = (
   })
 
   const revealedCards = cards.filter((card) => revealedKeys.includes(card.key))
+  const { width: captionWidth, height: captionHeight } = getCaptionSize(
+    boardMeta.width,
+    revealedCards,
+    captionContentByKey,
+  )
+  const boardRect = {
+    left: boardLeft,
+    right: boardLeft + boardMeta.width,
+    top: boardTop,
+    bottom: boardTop + boardMeta.height,
+  }
   const assigned = assignCaptionSides(revealedCards, boardMeta.width, boardMeta.height, captionWidth, captionHeight)
   const captions = buildCaptionLayouts(assigned, boardRect, captionWidth, captionHeight)
 

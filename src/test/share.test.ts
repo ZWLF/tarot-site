@@ -54,6 +54,7 @@ describe('share helpers', () => {
     expect(svg.startsWith('<svg')).toBe(true)
     expect(svg).toContain('月度海报')
     expect(svg).toContain(reading.cards[0].card.nameZh)
+    expect(svg).not.toContain('<foreignObject')
   })
 
   it('prefers local clipboard copy and never calls system share', async () => {
