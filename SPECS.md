@@ -376,3 +376,166 @@ npm run test:e2e
 
 - README 负责快速理解、运行和定位目录
 - SPECS 负责产品边界、功能规格、数据与架构约束
+
+## 12. 原生 SVG 牌阵仪式层 v1
+
+状态：Proposed
+
+### 12.1 决策
+
+结果页牌阵增加一个原生 SVG 装饰层，用现有牌阵布局坐标生成连线、节点和完成环。
+
+本版本：
+
+- 不新增运行时依赖
+- 不引入 Three.js、Anime.js、GSAP 或前端 `canvas` 包
+- 不改变抽牌、揭晓、归档、分享和持久化行为
+- 不新增牌阵专属动画配置
+- 不修改每日一张、牌阵预览和海报导出
+
+### 12.2 用户体验
+
+SVG 位于牌阵背景与卡牌之间，只增强结果页的视觉反馈：
+
+1. 结果页出现时，仪式层淡入，未揭晓节点保持低对比度。
+2. 用户揭晓一张牌时，对应节点点亮，从牌阵中心到该节点的连线绘制完成。
+3. 用户全部揭晓后，牌阵完成环增强显示。
+4. 单张牌阵只显示节点与完成环，不绘制零长度连线。
+5. 仪式层不接收鼠标或触摸事件，不遮挡卡牌点击。
+
+动画只执行一次状态过渡，不允许无限循环、持续粒子或常驻渲染循环。
+
+### 12.3 视觉规则
+
+- 颜色复用现有金色和红色设计变量，不建立第二套主题配置。
+- 每个牌位最多一个节点、一条由牌阵中心发出的连线。
+- 中心到节点距离小于 `8px` 时跳过连线。
+- 连线使用 SVG `pathLength="1"` 与 `stroke-dashoffset` 表达揭晓进度。
+- 节点只使用 `opacity`、`transform`、`fill` 和 `stroke` 状态变化。
+- 不使用 SVG filter、模糊、阴影或图片纹理。
+- 动画时长控制在 `420ms` 以内。
+
+单个牌阵的 SVG 元素上限为：
+
+- 1 个外层 `svg`
+- 1 个完成环
+- 最多 12 条连线
+- 最多 12 个节点
+
+总计不超过 26 个元素。
+
+### 12.4 模块与接入 seam
+
+新增 `SpreadRitualLayer` 模块，接入 seam 位于 `SpreadLayoutBoard` 已计算完成的舞台布局之后。
+
+模块 interface：
+
+```ts
+interface SpreadRitualLayerProps {
+  layout: SpreadStageLayout
+  revealedPositions: readonly string[]
+}
+```
+
+Implementation 只负责：
+
+- 从 `layout` 读取舞台、牌阵和卡牌中心坐标
+- 生成完成环、中心连线和牌位节点
+- 根据 `revealedPositions` 标记激活状态
+
+`SpreadLayoutBoard` 仍然是唯一布局装配点。不得为 SVG 再计算一套牌阵坐标，也不得向 `useReadingSession` 增加动画状态。
+
+### 12.5 图层顺序
+
+牌阵舞台的图层顺序固定为：
+
+1. `.spread-board`：现有背景
+2. `.spread-board__ritual-layer`：新增 SVG
+3. `.spread-board__cards-layer`：现有卡牌
+4. `.spread-board__captions-layer`：现有牌位说明
+
+SVG 必须设置：
+
+- `aria-hidden="true"`
+- `focusable="false"`
+- `pointer-events: none`
+
+它是纯装饰内容，不进入无障碍树，也不改变键盘顺序。
+
+### 12.6 响应式与减少动画
+
+- SVG 使用与 `SpreadStageLayout` 一致的 `viewBox`，跟随现有横向滚动舞台。
+- 移动端不得产生现有舞台之外的新溢出。
+- `prefers-reduced-motion: reduce` 下取消淡入、路径绘制和节点缩放，但保留静态的已揭晓状态。
+- 移动端关闭 `.stitch-topbar`、`.panel` 和 `.stitch-mobile-nav` 的 `backdrop-filter`，改用现有主题色的不透明背景。
+
+### 12.7 同批性能瘦身
+
+实现仪式层前先完成以下局部清理：
+
+- 删除确认无调用的旧 `.tarot-card*` 样式，保留当前 `.tarot-card-figure*`。
+- 将 `.encyclopedia-chip` 的 `transition: all` 改为实际发生变化的属性。
+- 不在本批次重编码卡牌图片；现有 WebP、`srcSet` 和懒加载继续作为图片策略。
+
+图片格式或质量参数只有在浏览器实测证明图片仍是目标页面瓶颈后再单独调整。
+
+### 12.8 性能预算
+
+- `package.json` 和 `package-lock.json` 不增加运行时依赖。
+- 相对实现前基线，主入口 JavaScript gzip 增量不超过 `3kB`。
+- 不新增 `requestAnimationFrame`、计时器、Canvas/WebGL context、ResizeObserver 或滚动监听。
+- 揭晓 12 张牌时不产生持续动画；最后一次过渡结束后页面保持静态。
+- 不降低现有图片懒加载和代码分包能力。
+
+### 12.9 验收标准
+
+功能验收：
+
+- 11 种牌阵均能生成有限且有效的 SVG 坐标，不出现 `NaN`。
+- 单张牌阵不生成零长度连线。
+- 逐张揭晓只激活对应节点和连线。
+- `全部揭晓` 激活全部节点、有效连线和完成环。
+- 卡牌仍可通过鼠标、触摸和键盘揭晓。
+- 自动归档、分享和海报导出结果与实现前一致。
+
+无障碍与响应式验收：
+
+- 装饰 SVG 不出现在可访问名称和 Tab 顺序中。
+- 模拟 `reducedMotion: reduce` 时不存在可见过渡动画。
+- 桌面和移动视口下，SVG 与卡牌中心对齐。
+- SVG 不扩大 `.spread-board-scroll` 的可滚动范围。
+
+工程验收：
+
+```bash
+npm run lint
+npm test
+npm run build
+npm run test:e2e
+```
+
+新增的最小自动化检查应覆盖：
+
+- 三张牌阵的节点与有效连线数量
+- 单张牌阵的零连线行为
+- 揭晓状态到 SVG 激活状态的映射
+- SVG 不拦截现有卡牌交互
+
+### 12.10 预计变更面
+
+- 新增 `src/components/SpreadRitualLayer.tsx`
+- 修改 `src/components/SpreadLayoutBoard.tsx`
+- 修改 `src/App.css`
+- 新增一个 `src/test` 下的仪式层测试文件
+
+除非实现时发现现有 `SpreadStageLayout` 缺少必要坐标，否则不修改 domain、engine、hook、data 或 storage。
+
+### 12.11 后续升级条件
+
+以下需求出现前，不引入动画库：
+
+- 需要可暂停、倒放或跳转的“洗牌 → 切牌 → 发牌 → 揭晓”多阶段时间线
+- 同一时间线需要协调大量 DOM 与 SVG 状态
+- 原生 CSS / Web Animations 实现已经出现明确、可复现的维护或性能问题
+
+达到以上条件时只评估 GSAP；不同时引入 GSAP 与 Anime.js。Three.js 仅在产品确定需要可交互灯光、镜头和空间深度的真实 3D 牌桌时评估。
