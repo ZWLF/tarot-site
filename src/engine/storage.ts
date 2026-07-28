@@ -4,7 +4,6 @@ import type {
   FollowUpRecord,
   NarrativeMeta,
   ReportSections,
-  ReadingPreferences,
   ReadingRecord,
   ReadingRecordV2,
   ReadingRecordV3,
@@ -18,16 +17,9 @@ const RECORDS_KEY = 'ukiyo-tarot.records-v4'
 const V3_RECORDS_KEY = 'ukiyo-tarot.records-v3'
 const V2_RECORDS_KEY = 'ukiyo-tarot.records-v2'
 const GUIDE_DISMISSED_KEY = 'ukiyo-tarot.guide-dismissed'
-const PREFERENCES_KEY = 'ukiyo-tarot.reading-preferences'
 const LEGACY_SAVED_KEY = 'ukiyo-tarot.saved-readings'
 const LEGACY_HISTORY_KEY = 'ukiyo-tarot:reading-history'
 const MAX_RECORDS = 120
-
-const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
-  deckPerformanceMode: 'auto',
-  shuffleSpeed: 'normal',
-  orientationMode: 'random',
-}
 
 const canUseStorage = () =>
   typeof window !== 'undefined' && window.localStorage !== undefined
@@ -72,21 +64,9 @@ const hashContent = (value: string) => {
   return hash.toString(36)
 }
 
-const depthLevelRank = (level: ReadingRecord['depthLevel']) => {
-  if (level === 'deep') {
-    return 3
-  }
-
-  if (level === 'standard') {
-    return 2
-  }
-
-  return 1
-}
-
 export const normalizeReadingRecords = (records: ReadingRecord[]) =>
   records
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
     .slice(0, MAX_RECORDS)
 
 const getLegacySpreadMeta = (
@@ -230,13 +210,15 @@ const normalizeReportSections = (
   }
 
   const sections = value as Partial<ReportSections>
+  const textOrFallback = (text: unknown, fallbackText: string) =>
+    typeof text === 'string' && text.trim() ? text.trim() : fallbackText
 
   return {
-    coreConclusion: sections.coreConclusion?.trim() || fallback.coreConclusion,
-    currentState: sections.currentState?.trim() || fallback.currentState,
-    riskAlert: sections.riskAlert?.trim() || fallback.riskAlert,
-    actionFocus: sections.actionFocus?.trim() || fallback.actionFocus,
-    reviewPrompt: sections.reviewPrompt?.trim() || fallback.reviewPrompt,
+    coreConclusion: textOrFallback(sections.coreConclusion, fallback.coreConclusion),
+    currentState: textOrFallback(sections.currentState, fallback.currentState),
+    riskAlert: textOrFallback(sections.riskAlert, fallback.riskAlert),
+    actionFocus: textOrFallback(sections.actionFocus, fallback.actionFocus),
+    reviewPrompt: textOrFallback(sections.reviewPrompt, fallback.reviewPrompt),
   }
 }
 
@@ -459,83 +441,9 @@ export const mergeReadingRecords = (records: ReadingRecord[]) => {
     const record = withNarrativeDefaults(rawRecord)
     const existing = map.get(record.id)
 
-    if (!existing) {
+    if (!existing || Date.parse(record.updatedAt) > Date.parse(existing.updatedAt)) {
       map.set(record.id, record)
-      continue
     }
-
-    const scoreRecord =
-      depthLevelRank(record.depthLevel) +
-      (record.narrativeMeta.validationPassed ? 0.5 : 0) +
-      record.narrativeMeta.coverageScore
-    const scoreExisting =
-      depthLevelRank(existing.depthLevel) +
-      (existing.narrativeMeta.validationPassed ? 0.5 : 0) +
-      existing.narrativeMeta.coverageScore
-    const shouldUseRecordNarrative =
-      scoreRecord > scoreExisting ||
-      (scoreRecord === scoreExisting &&
-        record.deepNarrative.length >= existing.deepNarrative.length)
-
-    map.set(record.id, {
-      ...existing,
-      ...record,
-      saved: existing.saved || record.saved,
-      title:
-        record.saved && record.title
-          ? record.title
-          : existing.saved && existing.title
-            ? existing.title
-            : record.title || existing.title,
-      tags: record.tags.length > 0 ? record.tags : existing.tags,
-      actionPlan:
-        record.saved && record.actionPlan.length > 0
-          ? record.actionPlan
-          : existing.saved && existing.actionPlan.length > 0
-            ? existing.actionPlan
-            : record.actionPlan.length > 0
-              ? record.actionPlan
-              : existing.actionPlan,
-      followUps: record.followUps.length > 0 ? record.followUps : existing.followUps,
-      dailyReflection:
-        record.dailyReflection.morningIntent ||
-        record.dailyReflection.eveningReview ||
-        record.dailyReflection.resonance
-          ? record.dailyReflection
-          : existing.dailyReflection,
-      updatedAt: record.updatedAt > existing.updatedAt ? record.updatedAt : existing.updatedAt,
-      depthLevel:
-        depthLevelRank(record.depthLevel) >= depthLevelRank(existing.depthLevel)
-          ? record.depthLevel
-          : existing.depthLevel,
-      depthSignals:
-        record.depthSignals.length > 0 ? record.depthSignals : existing.depthSignals,
-      ruleHits:
-        record.ruleHits.length > 0
-          ? Array.from(new Set([...existing.ruleHits, ...record.ruleHits]))
-          : existing.ruleHits,
-      queryFlags:
-        record.queryFlags.length > 0
-          ? Array.from(new Set([...existing.queryFlags, ...record.queryFlags]))
-          : existing.queryFlags,
-      interpretationSummary:
-        record.interpretationSummary || existing.interpretationSummary || record.summary,
-      deepNarrative: shouldUseRecordNarrative
-        ? record.deepNarrative
-        : existing.deepNarrative,
-      narrativeMeta: shouldUseRecordNarrative
-        ? record.narrativeMeta
-        : existing.narrativeMeta,
-      reportSections:
-        record.reportSections.coreConclusion !== existing.reportSections.coreConclusion ||
-        record.reportSections.currentState !== existing.reportSections.currentState ||
-        record.reportSections.riskAlert !== existing.reportSections.riskAlert ||
-        record.reportSections.actionFocus !== existing.reportSections.actionFocus ||
-        record.reportSections.reviewPrompt !== existing.reportSections.reviewPrompt
-          ? record.reportSections
-          : existing.reportSections,
-      version: 4,
-    })
   }
 
   return normalizeReadingRecords(Array.from(map.values()))
@@ -718,33 +626,30 @@ export const storeGuideDismissed = (value: boolean) => {
   writeJson(GUIDE_DISMISSED_KEY, value)
 }
 
-const sanitizePreferences = (
-  value: Partial<ReadingPreferences> | null | undefined,
-): ReadingPreferences => ({
-  deckPerformanceMode:
-    value?.deckPerformanceMode === 'auto' ||
-    value?.deckPerformanceMode === 'full' ||
-    value?.deckPerformanceMode === 'lite'
-      ? value.deckPerformanceMode
-      : DEFAULT_READING_PREFERENCES.deckPerformanceMode,
-  shuffleSpeed:
-    value?.shuffleSpeed === 'fast' ||
-    value?.shuffleSpeed === 'normal' ||
-    value?.shuffleSpeed === 'slow'
-      ? value.shuffleSpeed
-      : DEFAULT_READING_PREFERENCES.shuffleSpeed,
-  orientationMode:
-    value?.orientationMode === 'up-only' || value?.orientationMode === 'random'
-      ? value.orientationMode
-      : DEFAULT_READING_PREFERENCES.orientationMode,
-})
+const isValidTimestamp = (value: unknown): value is string =>
+  typeof value === 'string' && Number.isFinite(Date.parse(value))
 
-export const loadReadingPreferences = () =>
-  sanitizePreferences(readJson<Partial<ReadingPreferences>>(PREFERENCES_KEY, {}))
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string')
 
-export const saveReadingPreferences = (value: ReadingPreferences) => {
-  writeJson(PREFERENCES_KEY, sanitizePreferences(value))
-}
+const hasRecordBase = (record: Partial<Omit<ReadingRecordV2, 'version'>>) =>
+  typeof record.id === 'string' &&
+  (record.kind === 'reading' || record.kind === 'daily') &&
+  typeof record.saved === 'boolean' &&
+  isValidTimestamp(record.createdAt) &&
+  isValidTimestamp(record.updatedAt) &&
+  typeof record.title === 'string' &&
+  typeof record.question === 'string' &&
+  typeof record.topicLabel === 'string' &&
+  typeof record.spreadId === 'string' &&
+  typeof record.spreadTitle === 'string' &&
+  typeof record.tone === 'string' &&
+  typeof record.summary === 'string' &&
+  isStringArray(record.dominantSignals) &&
+  Array.isArray(record.cards) &&
+  Array.isArray(record.tags) &&
+  Array.isArray(record.followUps) &&
+  Array.isArray(record.actionPlan)
 
 const isReadingRecordV2 = (value: unknown): value is ReadingRecordV2 => {
   if (!value || typeof value !== 'object') {
@@ -755,13 +660,7 @@ const isReadingRecordV2 = (value: unknown): value is ReadingRecordV2 => {
 
   return (
     record.version === 2 &&
-    typeof record.id === 'string' &&
-    (record.kind === 'reading' || record.kind === 'daily') &&
-    typeof record.question === 'string' &&
-    Array.isArray(record.cards) &&
-    Array.isArray(record.tags) &&
-    Array.isArray(record.followUps) &&
-    Array.isArray(record.actionPlan)
+    hasRecordBase(record)
   )
 }
 
@@ -774,13 +673,7 @@ const isReadingRecordV3 = (value: unknown) => {
 
   return (
     record.version === 3 &&
-    typeof record.id === 'string' &&
-    (record.kind === 'reading' || record.kind === 'daily') &&
-    typeof record.question === 'string' &&
-    Array.isArray(record.cards) &&
-    Array.isArray(record.tags) &&
-    Array.isArray(record.followUps) &&
-    Array.isArray(record.actionPlan) &&
+    hasRecordBase(record) &&
     (record.depthLevel === 'shallow' ||
       record.depthLevel === 'standard' ||
       record.depthLevel === 'deep') &&
@@ -799,13 +692,7 @@ const isReadingRecordV4 = (value: unknown) => {
 
   return (
     record.version === 4 &&
-    typeof record.id === 'string' &&
-    (record.kind === 'reading' || record.kind === 'daily') &&
-    typeof record.question === 'string' &&
-    Array.isArray(record.cards) &&
-    Array.isArray(record.tags) &&
-    Array.isArray(record.followUps) &&
-    Array.isArray(record.actionPlan) &&
+    hasRecordBase(record) &&
     (record.depthLevel === 'shallow' ||
       record.depthLevel === 'standard' ||
       record.depthLevel === 'deep') &&

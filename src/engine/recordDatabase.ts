@@ -2,7 +2,7 @@ import { openDB } from 'idb'
 import type { ReadingRecord } from '../domain/tarot'
 import {
   loadReadingRecords,
-  normalizeReadingRecords,
+  mergeReadingRecords,
   storeReadingRecords,
   toReadingRecord,
 } from './storage'
@@ -87,12 +87,21 @@ export const hydrateReadingRecordsFromDatabase = async (): Promise<HydratedRecor
     ) as PersistedRecordsPayload | undefined
 
     if (Array.isArray(storedPayload?.records) && storedPayload.records.length > 0) {
-      const normalizedRecords = normalizeReadingRecords(
-        storedPayload.records
+      const normalizedRecords = mergeReadingRecords([
+        ...localRecords,
+        ...storedPayload.records
           .map((record) => toReadingRecord(record))
           .filter((record): record is ReadingRecord => record !== null),
-      )
+      ])
       storeReadingRecords(normalizedRecords)
+      await database.put(
+        STORE_NAME,
+        {
+          records: normalizedRecords,
+          updatedAt: new Date().toISOString(),
+        } satisfies PersistedRecordsPayload,
+        RECORDS_KEY,
+      )
 
       return {
         backend: 'indexeddb',

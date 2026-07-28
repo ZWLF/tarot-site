@@ -1,4 +1,4 @@
-import type { Orientation, ReadingRecord, ReadingResult } from '../domain/tarot'
+import type { Orientation, ReadingResult } from '../domain/tarot'
 
 interface PosterCard {
   label: string
@@ -59,33 +59,13 @@ export const buildReadingShareText = (
     .join('\n')
 }
 
-export const buildRecordShareText = (record: ReadingRecord): string => {
-  const cardsLine = record.cards
-    .map(
-      (card) =>
-        `${card.positionLabel}: ${card.cardName}${
-          card.orientation === 'up'
-            ? ' (正位)'
-            : ' (逆位)'
-        }`,
-    )
-    .join(' / ')
-
-  return [
-    `浮世占 / ${record.title || record.question}`,
-    `主题: ${record.topicLabel}`,
-    `牌阵: ${record.spreadTitle}`,
-    record.variantTitle ? `模式: ${record.variantTitle}` : null,
-    `牌面: ${cardsLine}`,
-    `结论: ${record.summary}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
-}
+const getPosterHeight = (cardCount: number) =>
+  Math.max(980, 268 + Math.ceil(cardCount / 2) * 86 + 246)
 
 export const buildReadingPosterSvg = (payload: PosterPayload) => {
+  const posterHeight = getPosterHeight(payload.cards.length)
+  const summaryY = 268 + Math.ceil(payload.cards.length / 2) * 86 + 30
   const cardRows = payload.cards
-    .slice(0, 10)
     .map((card, index) => {
       const row = Math.floor(index / 2)
       const column = index % 2
@@ -103,7 +83,7 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
     })
     .join('')
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="980" viewBox="0 0 760 980" fill="none">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="${posterHeight}" viewBox="0 0 760 ${posterHeight}" fill="none">
     <defs>
       <linearGradient id="poster-bg" x1="120" y1="60" x2="660" y2="920" gradientUnits="userSpaceOnUse">
         <stop stop-color="#19324a"/>
@@ -116,9 +96,9 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
       </radialGradient>
       <style><![CDATA[${SVG_FONT_TOKEN_CSS}]]></style>
     </defs>
-    <rect width="760" height="980" rx="34" fill="url(#poster-bg)"/>
-    <rect width="760" height="980" rx="34" fill="url(#poster-glow)"/>
-    <rect x="28" y="28" width="704" height="924" rx="28" stroke="rgba(255,238,205,0.18)"/>
+    <rect width="760" height="${posterHeight}" rx="34" fill="url(#poster-bg)"/>
+    <rect width="760" height="${posterHeight}" rx="34" fill="url(#poster-glow)"/>
+    <rect x="28" y="28" width="704" height="${posterHeight - 56}" rx="28" stroke="rgba(255,238,205,0.18)"/>
     <text x="54" y="84" fill="#e4c98a" font-size="20" font-family="var(--font-accent)" letter-spacing="4">UKIYO TAROT SALON</text>
     <text x="54" y="144" fill="#f7f0de" font-size="42" font-family="var(--font-display)">${escapeXml(payload.title)}</text>
     <text x="54" y="190" fill="#cad5e5" font-size="18" font-family="var(--font-display)">${escapeXml(payload.spreadTitle)}</text>
@@ -126,11 +106,11 @@ export const buildReadingPosterSvg = (payload: PosterPayload) => {
       <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:18px;color:#dfe8f8;line-height:1.55;">${escapeXml(payload.question)}</div>
     </foreignObject>
     ${cardRows}
-    <text x="54" y="734" fill="#e4c98a" font-size="18" font-family="var(--font-accent)" letter-spacing="3">SUMMARY</text>
-    <foreignObject x="54" y="750" width="652" height="154">
+    <text x="54" y="${summaryY}" fill="#e4c98a" font-size="18" font-family="var(--font-accent)" letter-spacing="3">SUMMARY</text>
+    <foreignObject x="54" y="${summaryY + 16}" width="652" height="154">
       <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--font-display);font-size:22px;color:#f8f2e5;line-height:1.7;">${escapeXml(payload.summary)}</div>
     </foreignObject>
-    <text x="54" y="932" fill="#bfc9d9" font-size="16" font-family="var(--font-display)">浮世塔罗 · 以牌为镜，以行动落地</text>
+    <text x="54" y="${posterHeight - 48}" fill="#bfc9d9" font-size="16" font-family="var(--font-display)">浮世塔罗 · 以牌为镜，以行动落地</text>
   </svg>`
 }
 
@@ -165,7 +145,7 @@ export const downloadPosterPng = async (
     })
     const canvas = document.createElement('canvas')
     canvas.width = 760
-    canvas.height = 980
+    canvas.height = getPosterHeight(payload.cards.length)
     const context = canvas.getContext('2d')
 
     if (!context) {

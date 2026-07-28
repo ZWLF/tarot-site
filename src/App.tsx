@@ -40,7 +40,6 @@ const CardEncyclopedia = lazy(async () => {
 const FIXED_READING_PREFERENCES: ReadingPreferences = {
   shuffleSpeed: 'normal',
   orientationMode: 'random',
-  deckPerformanceMode: 'full',
 }
 
 interface AppProps {
@@ -415,8 +414,8 @@ function App({ shuffleDelayMs }: AppProps) {
             shareMessage={readingSession.shareMessage}
           />
 
-          <LazySection fallback={<LazySectionFallback id="records-fallback" title="记录中心" />}>
-            <Suspense fallback={<LazySectionFallback id="records-fallback" title="记录中心" />}>
+          <LazySection fallback={<LazySectionFallback id="records" title="记录中心" />}>
+            <Suspense fallback={<LazySectionFallback id="records" title="记录中心" />}>
               <RecordCenter
                 compareSelection={normalizedCompareSelection}
                 dateFilter={recordDateFilter}

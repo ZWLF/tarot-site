@@ -197,8 +197,8 @@
 
 分享策略：
 
-- 优先调用 `navigator.share`
-- 退化到剪贴板复制
+- 优先复制到剪贴板，避免将占卜内容交给系统级分享目标
+- 剪贴板不可用时打开手动复制面板
 
 海报导出：
 
@@ -275,7 +275,7 @@
 
 ### 7.2 持久化模型
 
-统一使用 `ReadingRecordV2`，字段包含：
+统一使用 `ReadingRecordV4`，字段包含：
 
 - 记录类型
 - 收藏状态
@@ -304,15 +304,18 @@
 
 - `localStorage` 作为同步启动入口
 - IndexedDB 作为更稳定的持久化层
+- 启动时合并 IndexedDB 与 localStorage，同一记录保留最新的 `updatedAt`
 - 记录默认按 `updatedAt` 排序
 - 记录上限为 120 条
 
 ### 8.2 兼容与迁移
 
-当 `ukiyo-tarot.records-v2` 不存在时，系统会尝试迁移：
+当 `ukiyo-tarot.records-v4` 不存在时，系统会尝试迁移：
 
 - `ukiyo-tarot.saved-readings`
 - `ukiyo-tarot:reading-history`
+- `ukiyo-tarot.records-v2`
+- `ukiyo-tarot.records-v3`
 
 ### 8.3 导入导出
 
@@ -358,11 +361,8 @@ npm run test:e2e
 
 ### 10.2 已知风险
 
-- IndexedDB 启动时若已有数据，会优先回填，当前未对比其与 localStorage 的新旧时间
 - 每日记录的本地日历语义与 UTC 时间戳存在潜在跨日偏差
 - 每日揭晓状态不持久化，刷新页面后会重新回到未揭晓态
-- 导入 JSON 的结构校验偏浅，重点只校验顶层形状
-- `buildRecordShareText()` 已存在，但当前文档上未确认是否有已保存记录的直接分享入口
 
 ## 11. 维护约定
 

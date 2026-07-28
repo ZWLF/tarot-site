@@ -56,6 +56,31 @@ describe('share helpers', () => {
     expect(svg).toContain(reading.cards[0].card.nameZh)
   })
 
+  it('keeps every card in a twelve-card poster', () => {
+    const reading = createReading(
+      {
+        question: '接下来十二个月的重点是什么？',
+        topic: 'general',
+        spreadId: 'zodiac-wheel',
+      },
+      { seed: 'zodiac-poster' },
+    )
+    const svg = buildReadingPosterSvg({
+      title: '十二宫海报',
+      question: reading.input.question,
+      spreadTitle: reading.spread.title,
+      summary: reading.summary,
+      cards: reading.cards.map((entry) => ({
+        label: entry.positionLabel,
+        cardName: entry.card.nameZh,
+        orientation: entry.drawn.orientation,
+      })),
+    })
+
+    expect(svg).toContain(reading.cards.at(-1)!.card.nameZh)
+    expect(svg).toContain('height="1030"')
+  })
+
   it('prefers local clipboard copy and never calls system share', async () => {
     const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
     const navigatorShare = vi.fn().mockResolvedValue(undefined)

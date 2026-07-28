@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CARD_ART_MANIFEST } from '../data/artManifest'
 import { TAROT_DECK } from '../data/cards'
@@ -208,5 +208,62 @@ describe('ReadingResultSection', () => {
     expect(screen.getByText('回看问题')).toBeInTheDocument()
     expect(screen.getByText(reading.reportSections.reviewPrompt)).toBeInTheDocument()
     expect(screen.getByText('完整解读')).toBeInTheDocument()
+  })
+
+  it('only lists revealed cards and uses their generated position readings', () => {
+    const { container, rerender } = render(
+      <ReadingResultSection
+        actionPlanDoneIds={[]}
+        followUpQuestion=""
+        followUpSuggestions={[]}
+        followUps={[]}
+        onDownloadPoster={vi.fn()}
+        onFollowUpQuestionChange={vi.fn()}
+        onRecordTagsChange={vi.fn()}
+        onRecordTitleChange={vi.fn()}
+        onReveal={vi.fn()}
+        onRevealAll={vi.fn()}
+        onSaveReading={vi.fn()}
+        onShareReading={vi.fn()}
+        onSubmitFollowUp={vi.fn()}
+        onToggleActionPlan={vi.fn()}
+        reading={reading}
+        recordNotice={null}
+        recordTagsInput=""
+        recordTitle=""
+        revealedPositions={[]}
+        shareMessage={null}
+      />,
+    )
+
+    const readingList = container.querySelector<HTMLDivElement>('.spread-board__reading-list')!
+    expect(readingList).toBeEmptyDOMElement()
+
+    rerender(
+      <ReadingResultSection
+        actionPlanDoneIds={[]}
+        followUpQuestion=""
+        followUpSuggestions={[]}
+        followUps={[]}
+        onDownloadPoster={vi.fn()}
+        onFollowUpQuestionChange={vi.fn()}
+        onRecordTagsChange={vi.fn()}
+        onRecordTitleChange={vi.fn()}
+        onReveal={vi.fn()}
+        onRevealAll={vi.fn()}
+        onSaveReading={vi.fn()}
+        onShareReading={vi.fn()}
+        onSubmitFollowUp={vi.fn()}
+        onToggleActionPlan={vi.fn()}
+        reading={reading}
+        recordNotice={null}
+        recordTagsInput=""
+        recordTitle=""
+        revealedPositions={[reading.cards[0]!.drawn.positionKey]}
+        shareMessage={null}
+      />,
+    )
+
+    expect(within(readingList).getByText(reading.positionReadings[0]!.message)).toBeInTheDocument()
   })
 })

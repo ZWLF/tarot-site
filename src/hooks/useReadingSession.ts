@@ -86,7 +86,6 @@ export const useReadingSession = ({
   const [reading, setReading] = useState<ReadingResult | null>(null)
   const [revealedPositions, setRevealedPositions] = useState<string[]>([])
   const [isShuffling, setIsShuffling] = useState(false)
-  const [deckHighlights, setDeckHighlights] = useState<string[]>([])
   const [actionPlanDoneIds, setActionPlanDoneIds] = useState<string[]>([])
   const [followUpQuestion, setFollowUpQuestion] = useState('')
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>([])
@@ -245,7 +244,6 @@ export const useReadingSession = ({
 
     setReading(null)
     setRevealedPositions([])
-    setDeckHighlights(nextReading.cards.map((entry) => entry.card.id))
     setRecordNotice(null)
     setShareMessage(null)
 
@@ -374,7 +372,6 @@ export const useReadingSession = ({
     allRevealed,
     canDraw,
     currentRecord,
-    deckHighlights,
     drawNotice,
     followUpQuestion,
     followUps,

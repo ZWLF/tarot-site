@@ -9,7 +9,6 @@ export type Arcana = 'major' | 'minor'
 export type Suit = 'wands' | 'cups' | 'swords' | 'pentacles' | null
 export type Orientation = 'up' | 'down'
 export type OrientationMode = 'random' | 'up-only'
-export type DeckPerformanceMode = 'auto' | 'full' | 'lite'
 export type ReadingDepthLevel = 'shallow' | 'standard' | 'deep'
 export type DrawPool = 'any' | 'major' | 'wands' | 'cups' | 'swords' | 'pentacles'
 export type LayoutId =
@@ -125,7 +124,6 @@ export interface CardArtManifest {
 export interface ReadingPreferences {
   shuffleSpeed: 'fast' | 'normal' | 'slow'
   orientationMode: OrientationMode
-  deckPerformanceMode: DeckPerformanceMode
 }
 
 export interface ReadingCardView {

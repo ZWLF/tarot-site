@@ -1,10 +1,11 @@
 import { useMemo, type CSSProperties } from 'react'
-import type { ReadingCardView, ResolvedSpreadDefinition } from '../domain/tarot'
+import type { PositionReading, ReadingCardView, ResolvedSpreadDefinition } from '../domain/tarot'
 import { buildSpreadStageLayout, getBoardMetaForSpread } from '../lib/spreadBoardLayout'
 import { TarotCardFigure } from './TarotCardFigure'
 
 interface SpreadLayoutBoardProps {
   cards: ReadingCardView[]
+  positionReadings: PositionReading[]
   spread: ResolvedSpreadDefinition
   revealedPositions: string[]
   onReveal: (positionKey: string) => void
@@ -12,6 +13,7 @@ interface SpreadLayoutBoardProps {
 
 export function SpreadLayoutBoard({
   cards,
+  positionReadings,
   spread,
   revealedPositions,
   onReveal,
@@ -28,6 +30,10 @@ export function SpreadLayoutBoard({
   const captionMap = useMemo(
     () => Object.fromEntries(stageLayout.captions.map((entry) => [entry.key, entry])),
     [stageLayout.captions],
+  )
+  const positionReadingMap = useMemo(
+    () => Object.fromEntries(positionReadings.map((entry) => [entry.positionKey, entry])),
+    [positionReadings],
   )
 
   return (
@@ -115,15 +121,23 @@ export function SpreadLayoutBoard({
       </div>
 
       <div className="spread-board__reading-list">
-        {cards.map((entry) => (
-          <article key={`${entry.drawn.positionKey}-summary`} className="result-panel">
-            <p className="eyebrow">牌位 · {entry.positionLabel}</p>
-            <h3>
-              {entry.card.nameZh} · {entry.drawn.orientation === 'up' ? '正位' : '逆位'}
-            </h3>
-            <p>{entry.meaningHint}</p>
-          </article>
-        ))}
+        {cards.map((entry) => {
+          if (!revealedPositions.includes(entry.drawn.positionKey)) {
+            return null
+          }
+
+          const positionReading = positionReadingMap[entry.drawn.positionKey]
+
+          return (
+            <article key={`${entry.drawn.positionKey}-summary`} className="result-panel">
+              <p className="eyebrow">牌位 · {entry.positionLabel}</p>
+              <h3>
+                {entry.card.nameZh} · {entry.drawn.orientation === 'up' ? '正位' : '逆位'}
+              </h3>
+              <p>{positionReading?.message ?? entry.meaningHint}</p>
+            </article>
+          )
+        })}
       </div>
     </div>
   )

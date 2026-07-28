@@ -4,10 +4,9 @@ import {
   buildDailyRecord,
   buildReadingRecordFromReading,
   exportReadingRecordsJson,
-  loadReadingPreferences,
   loadReadingRecords,
+  mergeReadingRecords,
   parseReadingRecordsJson,
-  saveReadingPreferences,
   saveReadingRecord,
 } from '../engine/storage'
 
@@ -161,35 +160,6 @@ describe('reading storage', () => {
     expect(first.id).toBe(second.id)
     expect(second.dailyReflection.eveningReview).toContain('帮助')
   })
-  it('stores and reads drawing preferences with safe defaults', () => {
-    saveReadingPreferences({
-      deckPerformanceMode: 'lite',
-      shuffleSpeed: 'slow',
-      orientationMode: 'up-only',
-    })
-
-    expect(loadReadingPreferences()).toEqual({
-      deckPerformanceMode: 'lite',
-      shuffleSpeed: 'slow',
-      orientationMode: 'up-only',
-    })
-
-    window.localStorage.setItem(
-      'ukiyo-tarot.reading-preferences',
-      JSON.stringify({
-        deckPerformanceMode: 'cinema',
-        shuffleSpeed: 'bad-value',
-        shuffleIntensity: 'high',
-      }),
-    )
-
-    expect(loadReadingPreferences()).toEqual({
-      deckPerformanceMode: 'auto',
-      shuffleSpeed: 'normal',
-      orientationMode: 'random',
-    })
-  })
-
   it('serializes and parses record exports while preserving normalized order', () => {
     const first = createReading(
       {
@@ -302,5 +272,61 @@ describe('reading storage', () => {
     expect(imported[0].reportSections.coreConclusion).toContain('阻力')
     expect(imported[0].reportSections.reviewPrompt.length).toBeGreaterThan(0)
   })
-})
 
+  it('keeps the newest duplicate record without reviving older fields', () => {
+    const reading = createReading(
+      {
+        question: '这次合作应该怎样推进？',
+        topic: 'career',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'newest-record-wins' },
+    )
+    const older = {
+      ...buildReadingRecordFromReading(reading, {
+        recordId: 'duplicate-record',
+        saved: true,
+        title: '旧标题',
+        tags: ['旧标签'],
+        actionPlanDoneIds: [],
+        followUps: [],
+      }),
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
+    const newer = {
+      ...older,
+      title: '新标题',
+      tags: [],
+      actionPlan: older.actionPlan.map((step, index) => ({ ...step, done: index === 0 })),
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    }
+
+    expect(mergeReadingRecords([newer, older])[0]).toMatchObject({
+      title: '新标题',
+      tags: [],
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    })
+    expect(mergeReadingRecords([newer, older])[0].actionPlan[0]?.done).toBe(true)
+  })
+
+  it('rejects imported records with invalid timestamps', () => {
+    const reading = createReading(
+      {
+        question: '导入的时间戳是否有效？',
+        topic: 'general',
+        spreadId: 'daily-energy',
+      },
+      { seed: 'invalid-import-date' },
+    )
+    const record = buildReadingRecordFromReading(reading, {
+      saved: false,
+      title: '无效导入',
+      tags: [],
+      actionPlanDoneIds: [],
+      followUps: [],
+    })
+
+    expect(parseReadingRecordsJson(JSON.stringify({ records: [{ ...record, updatedAt: 'not-a-date' }] }))).toEqual([])
+  })
+})

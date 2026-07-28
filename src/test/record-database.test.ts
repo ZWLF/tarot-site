@@ -4,7 +4,7 @@ import {
   hydrateReadingRecordsFromDatabase,
   persistReadingRecordsToDatabase,
 } from '../engine/recordDatabase'
-import { buildReadingRecordFromReading } from '../engine/storage'
+import { buildReadingRecordFromReading, storeReadingRecords } from '../engine/storage'
 
 describe('record database persistence', () => {
   beforeEach(() => {
@@ -41,5 +41,42 @@ describe('record database persistence', () => {
     expect(hydrated.records).toHaveLength(1)
     expect(hydrated.records[0].id).toBe('indexeddb-record')
     expect(window.localStorage.getItem('ukiyo-tarot.records-v4')).not.toBeNull()
+  })
+
+  it('merges IndexedDB with newer local records during startup', async () => {
+    const reading = createReading(
+      {
+        question: '本地更新会被保留吗？',
+        topic: 'career',
+        spreadId: 'holy-triangle',
+        variantId: 'diagnostic',
+      },
+      { seed: 'database-merge' },
+    )
+    const older = {
+      ...buildReadingRecordFromReading(reading, {
+        recordId: 'database-merge',
+        saved: true,
+        title: '旧记录',
+        tags: ['旧'],
+        actionPlanDoneIds: [],
+        followUps: [],
+      }),
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
+    const newer = {
+      ...older,
+      title: '本地新记录',
+      tags: ['新'],
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    }
+
+    await persistReadingRecordsToDatabase([older])
+    storeReadingRecords([newer])
+
+    const hydrated = await hydrateReadingRecordsFromDatabase()
+
+    expect(hydrated.records).toHaveLength(1)
+    expect(hydrated.records[0]).toMatchObject({ title: '本地新记录', tags: ['新'] })
   })
 })

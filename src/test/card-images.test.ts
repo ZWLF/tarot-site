@@ -14,9 +14,9 @@ describe('rws card image mapping', () => {
       const imageAsset = CARD_IMAGE_ASSET_BY_ID[card.id]
 
       expect(art.imageUrl).toBe(imageAsset.detailJpgUrl)
-      expect(imageAsset.thumbnailJpgUrl).toBe(`/cards/rws/thumb-jpg/${card.id}.jpg`)
-      expect(imageAsset.thumbnailWebpUrl).toBe(`/cards/rws/thumb-webp/${card.id}.webp`)
-      expect(imageAsset.detailWebpUrl).toBe(`/cards/rws/detail-webp/${card.id}.webp`)
+      expect(imageAsset.thumbnailJpgUrl).toBe(`${import.meta.env.BASE_URL}cards/rws/thumb-jpg/${card.id}.jpg`)
+      expect(imageAsset.thumbnailWebpUrl).toBe(`${import.meta.env.BASE_URL}cards/rws/thumb-webp/${card.id}.webp`)
+      expect(imageAsset.detailWebpUrl).toBe(`${import.meta.env.BASE_URL}cards/rws/detail-webp/${card.id}.webp`)
     }
   })
 

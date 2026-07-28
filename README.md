@@ -164,7 +164,7 @@ Windows 辅助脚本：
 
 - 项目不接后端，所有业务数据保存在浏览器本地
 - 记录主存储 key 为 `ukiyo-tarot.records-v4`
-- 浏览器支持时会同步到 IndexedDB，作为更稳定的持久化层
+- 浏览器支持时会同步到 IndexedDB，并按记录的 `updatedAt` 合并启动数据
 - 启动时会尝试迁移旧版本：
   - `ukiyo-tarot.saved-readings`
   - `ukiyo-tarot:reading-history`
@@ -187,7 +187,7 @@ npm run test:e2e
 最近一次本地完整验证结果：
 
 - `lint` 通过
-- `test` 通过，59 tests passed
+- `test` 通过
 - `build` 通过
 - `test:e2e` 通过，2 tests passed
 

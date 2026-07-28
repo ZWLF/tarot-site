@@ -1,6 +1,5 @@
 import { TOPIC_BY_ID } from '../data/topics'
 import type { ReadingResult } from '../domain/tarot'
-import { BlurText } from '../components/BlurText'
 import { StatusMessage } from '../components/StatusMessage'
 import { RevealText } from '../components/RevealText'
 import { SpreadLayoutBoard } from '../components/SpreadLayoutBoard'
@@ -183,6 +182,7 @@ export function ReadingResultSection({
           <SpreadLayoutBoard
             cards={reading.cards}
             onReveal={onReveal}
+            positionReadings={reading.positionReadings}
             revealedPositions={revealedPositions}
             spread={reading.spread}
           />
@@ -222,7 +222,7 @@ export function ReadingResultSection({
                   <div className="result-panel__stack">
                     <p className="eyebrow">Reading Report</p>
                     <h3>完整解读</h3>
-                    <BlurText className="result-panel__summary" text={reading.deepNarrative} />
+                    <p className="result-panel__summary">{reading.deepNarrative}</p>
                   </div>
                 </article>
               </>
@@ -231,7 +231,7 @@ export function ReadingResultSection({
                 <div className="result-panel__stack">
                   <p className="eyebrow">Reading Report</p>
                   <RevealText as="h3" text="解牌报告" />
-                  <BlurText className="result-panel__summary" text={reading.deepNarrative} />
+                  <p className="result-panel__summary">{reading.deepNarrative}</p>
                 </div>
 
                 <div className="result-panel__divider" aria-hidden="true" />
