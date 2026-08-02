@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties } from 'react'
 import type { PositionReading, ReadingCardView, ResolvedSpreadDefinition } from '../domain/tarot'
 import { buildSpreadStageLayout, getBoardMetaForSpread } from '../lib/spreadBoardLayout'
 import { TarotCardFigure } from './TarotCardFigure'
+import { SpreadRitualLayer } from './SpreadRitualLayer'
 
 interface SpreadLayoutBoardProps {
   cards: ReadingCardView[]
@@ -53,6 +54,7 @@ export function SpreadLayoutBoard({
           }
         >
           <div className={`spread-board spread-board--${spread.layoutId}`} />
+          <SpreadRitualLayer layout={stageLayout} revealedPositions={revealedPositions} />
           <div className="spread-board__cards-layer">
             {cards.map((entry) => {
               const coordinate = cardMap[entry.drawn.positionKey]
